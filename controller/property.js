@@ -302,7 +302,6 @@ exports.GetAllBranchByBranchId = async (req, res) => {
 exports.appointBranchManager = async (req, res) => {
   try {
     const userId = req.user._id; // admin/owner id
-    const branchId = req.params.id;
     const { name, email, phone } = req.body;
 
     if (!name || !email || !phone) {
@@ -343,17 +342,15 @@ exports.appointBranchManager = async (req, res) => {
     if (redisClient) {
 
       const roomPattern = `room-${branchId}-*`;
-      const branchPattern = `branches-${branchId}-*`;
+      const branchPattern = `branches-${userId}`;
 
       const roomKeys = await redisClient.keys(roomPattern);
       if (roomKeys.length > 0) {
         await redisClient.del(roomKeys);
       }
 
-      const branchKeys = await redisClient.keys(branchPattern);
-      if (branchKeys.length > 0) {
-        await redisClient.del(branchKeys);
-      }
+      await redisClient.del(branchPattern);
+   
     }
 
 
