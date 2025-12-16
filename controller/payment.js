@@ -383,7 +383,7 @@ exports.verifying = async (req, res) => {
                     name: user.username,
                     Rent,
                     tenantId: req.user._id,
-                    email:req.user.email,
+                    email: req.user.email,
                     dues: 0,
                     advanced: 0,
                     roomNumber: room.roomNumber,
@@ -418,19 +418,36 @@ exports.verifying = async (req, res) => {
         console.log("🎉 Transaction committed successfully");
 
         /* ------------------ REDIS CACHE INVALIDATION ------------------ */
-        if (redisClient) {
-            await Promise.all([
-                redisClient.del("all-pg"),
-                redisClient.del(`tenant-branch-${room.branch}`),
-                redisClient.del(`room-${room.branch}-${roomId}`),
-                redisClient.del(`payment-${branchDoc.branchmanager}`),
-                redisClient.del(`tenant-${req.user._id}-booking`),
-                redisClient.del(`branches-${branchDoc._id}-allbranch`),
-                redisClient.del(`tenant-${branchDoc.branchmanager}-status`),
+        try {
+            if (redisClient?.isOpen) {
 
-            ]);
-            console.log("🗑️ Redis cache invalidated");
+                const deletePromises = [
+                    redisClient.del("all-pg"),
+                    redisClient.del(`tenant-branch-${room.branch}`),
+                    redisClient.del(`room-${room.branch}-${roomId}`),
+                    redisClient.del(`payment-${branchDoc.branchmanager}`),
+                    redisClient.del(`tenant-${req.user._id}-booking`),
+                    redisClient.del(`tenant-${branchDoc.branchmanager}-status`)
+                ];
+
+                // ⚠️ Use SCAN instead of KEYS (production safe)
+                const stream = redisClient.scanIterator({
+                    MATCH: `branches-${branchDoc._id}-*`,
+                    COUNT: 100,
+                });
+
+                for await (const key of stream) {
+                    deletePromises.push(redisClient.del(key));
+                }
+
+                await Promise.allSettled(deletePromises);
+
+                console.log("🗑️ Redis cache invalidated safely");
+            }
+        } catch (redisError) {
+            console.error("⚠️ Redis invalidation failed:", redisError);
         }
+
 
         /* ------------------ RESPONSE ------------------ */
         return res.status(200).json({
