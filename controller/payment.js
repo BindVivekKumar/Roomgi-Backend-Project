@@ -71,7 +71,7 @@ exports.getAllbranchPayments = async (req, res) => {
 
 exports.makingpayment = async (req, res) => {
     try {
-        const { amount, currency = "INR", receipt } = req.body;
+        const { amount, currency = "INR" } = req.body;
 
         // 1️⃣ Validate amount
         if (!amount || isNaN(amount) || Number(amount) <= 0) {
@@ -85,7 +85,7 @@ exports.makingpayment = async (req, res) => {
         const options = {
             amount: Number(amount), // Razorpay expects amount in paise
             currency,
-            receipt: receipt || `receipt_${Date.now()}`,
+            receipt: `receipt_${Date.now()}`,
             payment_capture: 1
         };
 
@@ -219,7 +219,7 @@ exports.makingpayment = async (req, res) => {
 
 //         // 8️⃣ Targeted Redis invalidation
 //         if (redisClient) {
-//             const branchKeys = [`payment-${branch.branchmanager}`, `tenant-${branchId}`, `room-${branchId}-${roomId}`];
+//             const branchKeys = [payment-${branch.branchmanager}, tenant-${branchId}, room-${branchId}-${roomId}];
 //             for (const key of branchKeys) {
 //                 await redisClient.del(key);
 //             }
@@ -324,14 +324,19 @@ exports.verifying = async (req, res) => {
         const updatedBranch = await PropertyBranch.findOneAndUpdate(
             {
                 _id: branchDoc._id,
-                "rooms._id": roomId,
-                "rooms.occupied": { $lt: capacity },
+                rooms: {
+                    $elemMatch: {
+                        _id: roomId,
+                        occupied: { $lt: capacity },
+                    },
+                },
             },
             {
                 $inc: { "rooms.$.occupied": 1 },
             },
             { session, new: true }
         );
+
 
         if (!updatedBranch) {
             return res.status(400).json({
@@ -362,7 +367,7 @@ exports.verifying = async (req, res) => {
                     branch: room.branch,
                     name: user.username,
                     Rent,
-                    tenantId:req.user._id,
+                    tenantId: req.user._id,
                     dues: 0,
                     advanced: 0,
                     roomNumber: room.roomNumber,
@@ -577,132 +582,132 @@ exports.createExpense = async (req, res) => {
 }
 
 exports.getAllExpenses = async (req, res) => {
-  try {
-    const expenses = await Expense.find().populate("branchId"); // populate branch info if needed
+    try {
+        const expenses = await Expense.find().populate("branchId"); // populate branch info if needed
 
-    return res.status(200).json({
-      success: true,
-      message: "All expenses fetched successfully",
-      allExpense: expenses,
-    });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-}; 
+        return res.status(200).json({
+            success: true,
+            message: "All expenses fetched successfully",
+            allExpense: expenses,
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};
 
 
 
 exports.RevenueDetails = async (req, res) => {
-  try {
-    const { month, year } = req.query;
-    const userId = req.user._id;
-    let notPaid = [];
+    try {
+        const { month, year } = req.query;
+        const userId = req.user._id;
+        let notPaid = [];
 
-    // Fetch all branches for this branch manager
-    const branches = await PropertyBranch.find({ branchmanager: userId });
+        // Fetch all branches for this branch manager
+        const branches = await PropertyBranch.find({ branchmanager: userId });
 
-    if (!branches.length) {
-      return res.status(400).json({
-        success: false,
-        message: "No branches found for this owner",
-      });
-    }
-
-    // Date range for the month
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-
-    let allPayments = [];
-    let allExpenses = [];
-    let tenantPayments = {}; // key: tenantId, value: { tenant, totalAdvance }
-    let totalExpense = 0;
-    let totalIncome = 0;
-
-    for (const branch of branches) {
-      // Fetch expenses
-      const branchExpenses = await Expense.find({
-        branchId: branch._id,
-        createdAt: { $gte: startDate, $lte: endDate },
-      }).populate("branchId");
-
-      branchExpenses.forEach((exp) => {
-        totalExpense += exp.amount || 0;
-      });
-
-      allExpenses.push(...branchExpenses);
-
-      // Fetch payments
-      const branchPayments = await Payment.find({
-        branch: branch._id,
-        createdAt: { $gte: startDate, $lte: endDate },
-      })
-        .sort({ createdAt: -1 })
-        .populate("tenantId")
-        .populate("branch");
-
-      allPayments.push(...branchPayments);
-
-      // Process tenant payments safely
-      branchPayments.forEach((payment) => {
-        const tenant = payment.tenantId;
-        if (!tenant) return; // skip null tenants
-
-        const tenantId = tenant._id.toString();
-        const tenantRent = tenant.rent || 0;
-
-        if (!tenantPayments[tenantId]) {
-          tenantPayments[tenantId] = {
-            tenant: tenant,
-            totalAdvance: payment.tilldateAdvance || 0,
-          };
-        } else {
-          tenantPayments[tenantId].totalAdvance = Math.max(
-            tenantPayments[tenantId].totalAdvance,
-            payment.amountpaid || 0
-          );
+        if (!branches.length) {
+            return res.status(400).json({
+                success: false,
+                message: "No branches found for this owner",
+            });
         }
 
-        tenantPayments[tenantId].totalAdvance -= tenantRent;
+        // Date range for the month
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59);
 
-        // Sum income safely
-        totalIncome += payment.amountpaid || 0;
-      });
+        let allPayments = [];
+        let allExpenses = [];
+        let tenantPayments = {}; // key: tenantId, value: { tenant, totalAdvance }
+        let totalExpense = 0;
+        let totalIncome = 0;
 
-      // Identify tenants who haven't paid
-      const allTenants = await Tenant.find({ branch: branch._id });
-      const paidTenantIds = branchPayments
-        .filter((p) => p.tenantId)
-        .map((p) => p.tenantId._id.toString());
+        for (const branch of branches) {
+            // Fetch expenses
+            const branchExpenses = await Expense.find({
+                branchId: branch._id,
+                createdAt: { $gte: startDate, $lte: endDate },
+            }).populate("branchId");
 
-      allTenants.forEach((tenant) => {
-        if (!paidTenantIds.includes(tenant._id.toString())) {
-          notPaid.push(tenant);
+            branchExpenses.forEach((exp) => {
+                totalExpense += exp.amount || 0;
+            });
+
+            allExpenses.push(...branchExpenses);
+
+            // Fetch payments
+            const branchPayments = await Payment.find({
+                branch: branch._id,
+                createdAt: { $gte: startDate, $lte: endDate },
+            })
+                .sort({ createdAt: -1 })
+                .populate("tenantId")
+                .populate("branch");
+
+            allPayments.push(...branchPayments);
+
+            // Process tenant payments safely
+            branchPayments.forEach((payment) => {
+                const tenant = payment.tenantId;
+                if (!tenant) return; // skip null tenants
+
+                const tenantId = tenant._id.toString();
+                const tenantRent = tenant.rent || 0;
+
+                if (!tenantPayments[tenantId]) {
+                    tenantPayments[tenantId] = {
+                        tenant: tenant,
+                        totalAdvance: payment.tilldateAdvance || 0,
+                    };
+                } else {
+                    tenantPayments[tenantId].totalAdvance = Math.max(
+                        tenantPayments[tenantId].totalAdvance,
+                        payment.amountpaid || 0
+                    );
+                }
+
+                tenantPayments[tenantId].totalAdvance -= tenantRent;
+
+                // Sum income safely
+                totalIncome += payment.amountpaid || 0;
+            });
+
+            // Identify tenants who haven't paid
+            const allTenants = await Tenant.find({ branch: branch._id });
+            const paidTenantIds = branchPayments
+                .filter((p) => p.tenantId)
+                .map((p) => p.tenantId._id.toString());
+
+            allTenants.forEach((tenant) => {
+                if (!paidTenantIds.includes(tenant._id.toString())) {
+                    notPaid.push(tenant);
+                }
+            });
         }
-      });
+
+        const totalRevenue = totalIncome - totalExpense;
+
+        return res.status(200).json({
+            success: true,
+            message: `Payment collection report for ${month}-${year}`,
+            allPayments,
+            allExpenses,
+            expense: totalExpense,
+            income: totalIncome,
+            totalRevenue,
+            notPaid,
+            tenantPayments,
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
     }
-
-    const totalRevenue = totalIncome - totalExpense;
-
-    return res.status(200).json({
-      success: true,
-      message: `Payment collection report for ${month}-${year}`,
-      allPayments,
-      allExpenses,
-      expense: totalExpense,
-      income: totalIncome,
-      totalRevenue,
-      notPaid,
-      tenantPayments,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
 };
