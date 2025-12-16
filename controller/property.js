@@ -9,11 +9,11 @@ const deletemedia = require("../utils/cloudinary.js")
 const axios = require('axios')
 
 async function AllProperty(id) {
-    const Allproprty = await Property.find({ owner: id }).populate({
-        path: "owner",
-        select: "username email "
-    });
-    return Allproprty;
+  const Allproprty = await Property.find({ owner: id }).populate({
+    path: "owner",
+    select: "username email "
+  });
+  return Allproprty;
 }
 
 
@@ -78,7 +78,7 @@ exports.GetAllBranch = async (req, res) => {
     }
 
     const allbranch = await PropertyBranch.find({ branchmanager: userId }).lean();
-    console.log("allbranch",allbranch)
+    console.log("allbranch", allbranch)
 
     if (redisClient) await redisClient.setEx(cachedKey, 3600, JSON.stringify(allbranch));
 
@@ -339,17 +339,23 @@ exports.appointBranchManager = async (req, res) => {
     await foundBranch.save();
 
     // ✅ Redis cache invalidation
+    // ✅ Redis cache invalidation
     if (redisClient) {
-      const roomPattern = `room-${branchId}-*`;
-      const branchPattern = await redisClient.del(`branches-${branchId}-*`);
 
+      const roomPattern = `room-${branchId}-*`;
+      const branchPattern = `branches-${branchId}-*`;
 
       const roomKeys = await redisClient.keys(roomPattern);
-      if (roomKeys.length) await redisClient.del(roomKeys);
+      if (roomKeys.length > 0) {
+        await redisClient.del(roomKeys);
+      }
 
       const branchKeys = await redisClient.keys(branchPattern);
-      if (branchKeys.length) await redisClient.del(branchKeys);
+      if (branchKeys.length > 0) {
+        await redisClient.del(branchKeys);
+      }
     }
+
 
     return res.status(200).json({
       success: true,
@@ -493,79 +499,79 @@ exports.GetAllBranchOwner = async (req, res) => {
 exports.CreateProperty = async (req, res) => {
 
 
-    try {
+  try {
 
-        const userId = req.user._id;
-        const { name } = req.body;
+    const userId = req.user._id;
+    const { name } = req.body;
 
 
-        if (!name) {
-            return res.status(400).json({
-                success: false,
-                message: "please Filled  the name  And Upload"
-            })
-        }
-
-        const allproperty = AllProperty(userId);
-        if (allproperty.length > 0) {
-            return res.status(400).json({
-                success: false,
-                message: "User have the property Listed"
-            })
-        }
-        const newProperty = await Property.create({
-            name,
-            owner: userId
-        })
-        return res.status(200).json({
-            success: "true",
-            message: "property created Successfully",
-            newProperty
-        })
-    } catch (error) {
-        console.log(error)
-        return res.status(500).json({
-            success: false,
-            message: "Internal server Error"
-        })
-
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: "please Filled  the name  And Upload"
+      })
     }
+
+    const allproperty = AllProperty(userId);
+    if (allproperty.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "User have the property Listed"
+      })
+    }
+    const newProperty = await Property.create({
+      name,
+      owner: userId
+    })
+    return res.status(200).json({
+      success: "true",
+      message: "property created Successfully",
+      newProperty
+    })
+  } catch (error) {
+    console.log(error)
+    return res.status(500).json({
+      success: false,
+      message: "Internal server Error"
+    })
+
+  }
 }
 exports.DeleteProperty = async (req, res) => {
-    try {
-        const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-        // Check if branch manager exists
-        const foundBranchManager = await branchmanager.findOne({ propertyId: id });
+    // Check if branch manager exists
+    const foundBranchManager = await branchmanager.findOne({ propertyId: id });
 
-        if (foundBranchManager) {
-            foundBranchManager.status = "In-Active";
-            await foundBranchManager.save();
-        }
-
-        // Delete property
-        const deletedProperty = await PropertyBranch.findByIdAndDelete(id);
-
-        if (!deletedProperty) {
-            return res.status(404).json({
-                success: false,
-                message: "Property not found",
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Property deleted successfully",
-        });
-
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal Server Error",
-            error: error.message,
-        });
+    if (foundBranchManager) {
+      foundBranchManager.status = "In-Active";
+      await foundBranchManager.save();
     }
+
+    // Delete property
+    const deletedProperty = await PropertyBranch.findByIdAndDelete(id);
+
+    if (!deletedProperty) {
+      return res.status(404).json({
+        success: false,
+        message: "Property not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Property deleted successfully",
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
 };
 
 
@@ -648,14 +654,14 @@ exports.AddRoom = async (req, res) => {
       notAllowed: Array.isArray(notAllowed) ? notAllowed : notAllowed ? [notAllowed] : [],
       rules: Array.isArray(rules) ? rules : rules ? [rules] : [],
       furnishedType: furnishedType || "Semi Furnished",
-      vacant:  type === "Double" ? 2 : type === "Triple" ? 3 : 1,
+      vacant: type === "Double" ? 2 : type === "Triple" ? 3 : 1,
       availabilityStatus: availabilityStatus || "Available",
       category,
       city: city || foundBranch.city,
       createdBy: userId,
       branch: foundBranch._id,
       roomImages: uploadedImages,
-      capacity:type==="Double"?2:type==="Triple"?3:1
+      capacity: type === "Double" ? 2 : type === "Triple" ? 3 : 1
     };
 
     foundBranch.rooms.push(newRoom);
@@ -765,22 +771,22 @@ exports.UpdateRoom = async (req, res) => {
     const oldType = room.type;
 
     const allowedFields = [
-      "roomNumber","capacity","hoteltype","flattype","roomtype","renttype","type","city",
-      "count","verified","description","notAllowed","rules","allowedFor","furnishedType",
-      "vacant","availabilityStatus","toPublish","price","rentperday","rentperhour","rentperNight",
-      "category","roomImages","facilities"
+      "roomNumber", "capacity", "hoteltype", "flattype", "roomtype", "renttype", "type", "city",
+      "count", "verified", "description", "notAllowed", "rules", "allowedFor", "furnishedType",
+      "vacant", "availabilityStatus", "toPublish", "price", "rentperday", "rentperhour", "rentperNight",
+      "category", "roomImages", "facilities"
     ];
 
     allowedFields.forEach(field => { if (updateData[field] !== undefined) room[field] = updateData[field]; });
 
     if (oldCategory !== updateData.category || oldType !== updateData.type) {
       if (room.verified) {
-        if (oldCategory === "Pg") room.type === "Single" ? foundBranch.totalBeds-- : room.type === "Double" ? foundBranch.totalBeds-=2 : foundBranch.totalBeds-=3;
+        if (oldCategory === "Pg") room.type === "Single" ? foundBranch.totalBeds-- : room.type === "Double" ? foundBranch.totalBeds -= 2 : foundBranch.totalBeds -= 3;
         if (oldCategory === "Rented-Room") foundBranch.totalrentalRoom--;
         if (oldCategory === "Hotel") foundBranch.totelhotelroom--;
       }
       if (updateData.verified) {
-        if (updateData.category === "Pg") updateData.type === "Single" ? foundBranch.totalBeds++ : updateData.type === "Double" ? foundBranch.totalBeds+=2 : foundBranch.totalBeds+=3;
+        if (updateData.category === "Pg") updateData.type === "Single" ? foundBranch.totalBeds++ : updateData.type === "Double" ? foundBranch.totalBeds += 2 : foundBranch.totalBeds += 3;
         if (updateData.category === "Rented-Room") foundBranch.totalrentalRoom++;
         if (updateData.category === "Hotel") foundBranch.totelhotelroom++;
       }
@@ -1209,8 +1215,8 @@ exports.listPgRoom = async (req, res) => {
 
     // Clear relevant Redis caches
     if (redisClient) {
-      await redisClient.del("all-pg"); 
-      await redisClient.del( `branches-${branchId}-allbranch`);
+      await redisClient.del("all-pg");
+      await redisClient.del(`branches-${branchId}-allbranch`);
       const roomKeys = await redisClient.keys("room-*");
       for (const key of roomKeys) await redisClient.del(key);
       const branchKeys = await redisClient.keys("branches-*");
