@@ -373,7 +373,7 @@ exports.verifying = async (req, res) => {
         console.log("✅ Room availability updated:", updatedRoom);
 
         /* ------------------ TENANT CREATION ------------------ */
-        const Rent = room.rent || room.rentperday || room.rentperNight || room.rentperhour;
+        const Rent = room.price || room.rentperday || room.rentperNight || room.rentperhour;
         console.log("💰 Calculated rent:", Rent);
 
         const newTenant = await Tenant.create(
@@ -401,6 +401,7 @@ exports.verifying = async (req, res) => {
                     userId: user._id,
                     branch: room.branch,
                     mode: "Online",
+                    email:req.user.email,
                     tilldatestatus: "paid",
                     amountpaid: amount,
                     razorpay_order_id,
@@ -532,6 +533,7 @@ exports.createPayment = async (req, res) => {
             tenantId,
             branch,
             amountpaid,
+            email:foundtenant.email,
             tilldateAdvance: foundtenant.advanced,
             tilldatedues: foundtenant.dues,
             tilldatestatus: foundtenant.paymentstatus

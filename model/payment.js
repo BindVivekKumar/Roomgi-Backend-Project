@@ -11,6 +11,9 @@ const PaymentSchema = new mongoose.Schema({
     roomId: [{
         type: String,
     }],
+    email:{
+        type:String
+    },
 
     branch: {
         type: mongoose.Schema.Types.ObjectId,
