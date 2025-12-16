@@ -10,7 +10,7 @@ exports.Validate = async (req, res, next) => {
 
 
 
-            return res.status(400).json({
+            return res.status(401).json({
                 success: false,
                 message: "Token not found"
             });

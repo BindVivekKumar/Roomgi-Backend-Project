@@ -474,7 +474,7 @@ exports.BookingDetails = async (req, res) => {
         }
 
         // Fetch all bookings for this tenant
-        const allBookings = await Tenant.find({ eail: req.user.email })
+        const allBookings = await Tenant.find({ email: req.user.email })
             .populate({
                 path: "branch",
                 select: "rooms",
