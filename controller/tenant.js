@@ -464,17 +464,26 @@ exports.BookingDetails = async (req, res) => {
         const cacheKey = `tenant-${req.user._id}-booking`;
 
         // Check if cached
-         const cached = await redisClient.get(cacheKey);
-        // if (cached) {
-        //     return res.status(200).json({
-        //         success: true,
-        //         message: "All bookings fetched from cache",
-        //         bookings: JSON.parse(cached),
-        //     });
-        // }
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+            return res.status(200).json({
+                success: true,
+                message: "All bookings fetched from cache",
+                bookings: JSON.parse(cached),
+            });
+        }
 
         // Fetch all bookings for this tenant
-        const allBookings = await Tenant.find({ name: req.user.username });
+        const allBookings = await Tenant.find({ eail: req.user.email })
+            .populate({
+                path: "branch",
+                select: "rooms",
+                populate: {
+                    path: "rooms.personalreview",
+                    model: "Review",
+                    select: "rating review user createdAt"
+                }
+            });
 
         if (!allBookings.length) {
             return res.status(404).json({

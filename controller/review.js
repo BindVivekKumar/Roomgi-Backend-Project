@@ -16,26 +16,26 @@ exports.createreview = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
+  const abort = async (status, message) => {
+    await session.abortTransaction();
+    session.endSession();
+    return res.status(status).json({ success: false, message });
+  };
+
   try {
     const { roomId, rating, review } = req.body;
     const userId = req.user._id;
 
-    // 1️⃣ Validation
     if (!roomId || rating == null) {
-      return res.status(400).json({
-        success: false,
-        message: "RoomId and rating are required",
-      });
+      return abort(400, "RoomId and rating are required");
     }
 
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({
-        success: false,
-        message: "Rating must be between 1 and 5",
-      });
+    const numericRating = Number(rating);
+    if (numericRating < 1 || numericRating > 5) {
+      return abort(400, "Rating must be between 1 and 5");
     }
 
-    // 2️⃣ Prevent duplicate review
+    // 1️⃣ Check duplicate review
     const existingReview = await Review.findOne(
       { roomId, user: userId },
       null,
@@ -43,78 +43,65 @@ exports.createreview = async (req, res) => {
     );
 
     if (existingReview) {
-      return res.status(409).json({
-        success: false,
-        message: "You have already reviewed this room",
-      });
+      return abort(409, "You have already reviewed this room");
     }
 
-    // 3️⃣ Create review first
-    const reviewDoc = await Review.create(
-      [
-        {
-          roomId,
-          user: userId,
-          rating,
-          review,
-        },
-      ],
+    // 2️⃣ Find branch FIRST (🔥 IMPORTANT)
+    const branch = await PropertyBranch.findOne(
+      { "rooms._id": roomId },
+      { _id: 1, "rooms.$": 1 },
       { session }
     );
 
-    const reviewId = reviewDoc[0]._id;
+    if (!branch) {
+      return abort(404, "Room not found");
+    }
 
-    // 4️⃣ ATOMIC room update (🔥 THIS IS THE KEY FIX)
-    const updatedBranch = await PropertyBranch.findOneAndUpdate(
+    // 3️⃣ Create review WITH branchId ✅
+    const [reviewDoc] = await Review.create(
+      [{
+        roomId,
+        user: userId,
+        branchId: branch._id, // 🔥 FIX
+        rating: numericRating,
+        review,
+      }],
+      { session }
+    );
+
+    // 4️⃣ Update room ratings
+    await PropertyBranch.updateOne(
       { "rooms._id": roomId },
       {
-        $push: { "rooms.$.personalreview": reviewId },
+        $push: { "rooms.$.personalreview": reviewDoc._id },
         $inc: {
-          "rooms.$.totalrating": rating,
+          "rooms.$.totalrating": numericRating,
           "rooms.$.ratingcount": 1,
         },
       },
-      { new: true, session }
-    );
-
-    if (!updatedBranch) {
-      await Review.findByIdAndDelete(reviewId, { session });
-      return res.status(404).json({
-        success: false,
-        message: "Room not found",
-      });
-    }
-
-    // 5️⃣ Update branchId inside review (optional but clean)
-    await Review.findByIdAndUpdate(
-      reviewId,
-      { branchId: updatedBranch._id },
       { session }
     );
 
     await session.commitTransaction();
     session.endSession();
 
-    // 6️⃣ Redis cache invalidation (safe)
+    // 5️⃣ Redis cache invalidation
     if (redisClient?.isOpen) {
-      await Promise.allSettled([
-        redisClient.del(`tenant-${userId}-*`),
-        redisClient.del(`branch-${updatedBranch._id}-*`),
-      ]);
+      const tenantKeys = await redisClient.keys(`tenant-${userId}-*`);
+      const branchKeys = await redisClient.keys(`branch-${branch._id}-*`);
+
+      if (tenantKeys.length) await redisClient.del(tenantKeys);
+      if (branchKeys.length) await redisClient.del(branchKeys);
     }
 
-    // 7️⃣ Calculate average rating
-    const room = updatedBranch.rooms.find(
-      r => r._id.toString() === roomId.toString()
-    );
-
-    const averageRating =
-      room.totalrating / room.ratingcount;
+    const room = branch.rooms[0];
 
     return res.status(201).json({
       success: true,
       message: "Review added successfully",
-      averageRating: Number(averageRating.toFixed(1)),
+      averageRating: Number(
+        ((room.totalrating + numericRating) / (room.ratingcount + 1)).toFixed(1)
+      ),
     });
 
   } catch (error) {
@@ -129,31 +116,32 @@ exports.createreview = async (req, res) => {
   }
 };
 
+
 exports.getAllreview = async (req, res) => {
 
-    try {
-        const { roomId } = req.params;
+  try {
+    const { roomId } = req.params;
 
-        const reviews = await Review.find({ roomId: roomId });
+    const reviews = await Review.find({ roomId: roomId });
 
-        if (reviews.length <= 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Not have any reviewd till now"
-            })
-        }
-
-        return res.status.json({
-            success: true,
-            message: "all reviews of this branch are ",
-            reviews: reviews
-        })
-
-    } catch (error) {
-        console.error("Create review error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+    if (reviews.length <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Not have any reviewd till now"
+      })
     }
+
+    return res.status.json({
+      success: true,
+      message: "all reviews of this branch are ",
+      reviews: reviews
+    })
+
+  } catch (error) {
+    console.error("Create review error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 }
