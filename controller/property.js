@@ -65,11 +65,9 @@ const handleError = (res, error, message = "Internal Server Error") => {
 // ----------------------
 exports.GetAllBranch = async (req, res) => {
   try {
+    const useremail = req.user.email;
     const userId = req.user._id;
-
-    const manager = await branchmanager.findById(userId).select("_id propertyId");
-    if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
-
+  
     const cachedKey = `branches-${userId}-allbranch`;
 
     if (redisClient) {
@@ -77,7 +75,12 @@ exports.GetAllBranch = async (req, res) => {
       if (cached) return res.status(200).json({ success: true, message: "From cache", allbranch: JSON.parse(cached) });
     }
 
-    const allbranch = await PropertyBranch.find({ branchmanager: userId }).lean();
+
+    const manager = await branchmanager.findOne({ email: useremail });
+    if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
+
+
+    const allbranch = await PropertyBranch.find({ branchmanager: manager._id }).lean();
     console.log("allbranch", allbranch)
 
     if (redisClient) await redisClient.setEx(cachedKey, 3600, JSON.stringify(allbranch));
@@ -303,8 +306,8 @@ exports.appointBranchManager = async (req, res) => {
   try {
     const ownerId = req.user._id;
     const { name, email, phone } = req.body;
-    const branchid=req.params.id
-   
+    const branchid = req.params.id
+
 
     if (!name || !email || !phone) {
       return res.status(400).json({
@@ -318,7 +321,7 @@ exports.appointBranchManager = async (req, res) => {
     const branch = await PropertyBranch
       .findById(branchid)
 
-      console.log(branch)
+    console.log(branch)
 
     if (!branch) {
       return res.status(404).json({
@@ -500,7 +503,7 @@ exports.GetAllBranchOwner = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("GetAllBranchOwner Error:", error);
+    console.log("GetAllBranchOwner Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
