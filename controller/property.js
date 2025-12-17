@@ -275,10 +275,10 @@ exports.GetAllBranchByBranchId = async (req, res) => {
   try {
     const userId = req.user._id;
     const manager = await branchmanager.findOne({ userId }).lean();
-const useremail=req.user.email;
+    const useremail = req.user.email;
     // Fetch branches only for the current branch manager
-    const branches = await branchmanager.find({ email:useremail }).lean();
-    console.log("branches", branches)
+    const branches = await branchmanager.find({ email: useremail }).lean();
+
     return res.status(200).json({
       success: true,
       message: "All branches fetched successfully",
@@ -589,116 +589,215 @@ exports.DeleteProperty = async (req, res) => {
 exports.AddRoom = async (req, res) => {
   try {
     const userId = req.user._id;
-    const imageFiles = req.files?.images;
+    const role = req.user.role;
+    const imageFiles = req.files?.images || [];
 
-    if (req.user.role !== "branch-manager") {
-      return res.status(403).json({ success: false, message: "You are not authorised to add a room" });
+    if (role !== "branch-manager") {
+      return res.status(403).json({
+        success: false,
+        message: "Only branch managers can add rooms",
+      });
     }
 
     const {
-      branch, roomNumber, type, price, facilities, description, notAllowed, rules,
-      furnishedType, allowedFor, availabilityStatus, rentperday, rentperhour,
-      rentperNight, category, city, hoteltype, roomtype, renttype, flattype
+      roomNumber,
+      type,
+      price,
+      facilities,
+      description,
+      notAllowed,
+      rules,
+      furnishedType,
+      allowedFor,
+      availabilityStatus,
+      rentperday,
+      rentperhour,
+      rentperNight,
+      category,
+      city,
+      hoteltype,
+      roomtype,
+      renttype,
+      flattype,
     } = req.body;
 
-    if (!branch || !roomNumber || !category) {
-      return res.status(400).json({ success: false, message: "Please fill all required fields" });
+    if (!roomNumber || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "roomNumber and category are required",
+      });
     }
 
-    if ((category !== "Hotel") && !price) {
-      return res.status(400).json({ success: false, message: "Price is required for PG or Rented-Room" });
+    // 🔥 1️⃣ Get branch-manager with property
+    const manager = await branchmanager
+      .findOne({ email: req.user.email })
+      .populate("propertyId");
+
+    if (!manager || !manager.propertyId) {
+      return res.status(404).json({
+        success: false,
+        message: "No branch assigned to this manager",
+      });
     }
 
-    if (category === "Hotel" && !rentperday && !rentperhour && !rentperNight) {
-      return res.status(400).json({ success: false, message: "At least one rent (per day/hour/night) is required for Hotel" });
+    const branch = manager.propertyId;
+
+    // 🔥 2️⃣ Check duplicate room number
+    const roomExists = branch.rooms?.some(
+      (r) => Number(r.roomNumber) === Number(roomNumber)
+    );
+
+    if (roomExists) {
+      return res.status(409).json({
+        success: false,
+        message: "Room number already exists in this branch",
+      });
     }
 
-    const foundBranch = await PropertyBranch.findById(branch);
-    if (!foundBranch) return res.status(404).json({ success: false, message: "Branch not found" });
-
-    const roomExists = foundBranch.rooms.some(r => r.roomNumber == roomNumber);
-    if (roomExists) return res.status(400).json({ success: false, message: "Room Number Already Exists" });
-
-    // Upload images
+    // ☁️ Upload images
     const uploadedImages = [];
-    if (imageFiles?.length > 0) {
-      for (let file of imageFiles) {
-        const uploadRes = await Uploadmedia.Uploadmedia(file.path);
-        uploadedImages.push(uploadRes.secure_url);
-      }
+    for (const file of imageFiles) {
+      const uploadRes = await Uploadmedia.Uploadmedia(file.path);
+      uploadedImages.push(uploadRes.secure_url);
     }
 
+    // 🧠 Capacity
+    let capacity = 1;
+    if (type === "Double") capacity = 2;
+    if (type === "Triple") capacity = 3;
+
+    // 🏗️ Room object
     const newRoom = {
-      roomNumber,
-      allowedFor,
+      roomNumber: Number(roomNumber),
+      category,
+      city: city || branch.city,
+
+      type: category === "Pg" ? type : undefined,
+      price: category !== "Hotel" ? price : undefined,
+
       renttype: category === "Rented-Room" ? renttype : undefined,
       flattype: renttype === "Flat-Rent" ? flattype : undefined,
       roomtype: renttype === "Room-Rent" ? roomtype : undefined,
+
       hoteltype: category === "Hotel" ? hoteltype : undefined,
-      type: category === "Pg" ? type : undefined,
-      price: category !== "Hotel" ? price : undefined,
       rentperday: category === "Hotel" ? rentperday : undefined,
       rentperhour: category === "Hotel" ? rentperhour : undefined,
       rentperNight: category === "Hotel" ? rentperNight : undefined,
+
+      allowedFor: allowedFor || "Anyone",
+      furnishedType: furnishedType || "Semi Furnished",
+
       facilities: Array.isArray(facilities) ? facilities : facilities ? [facilities] : [],
-      description: description || "",
       notAllowed: Array.isArray(notAllowed) ? notAllowed : notAllowed ? [notAllowed] : [],
       rules: Array.isArray(rules) ? rules : rules ? [rules] : [],
-      furnishedType: furnishedType || "Semi Furnished",
-      vacant: type === "Double" ? 2 : type === "Triple" ? 3 : 1,
+
+      description: description || "",
       availabilityStatus: availabilityStatus || "Available",
-      category,
-      city: city || foundBranch.city,
+
+      vacant: capacity,
+      capacity,
+
       createdBy: userId,
-      branch: foundBranch._id,
+      branch: branch._id,
       roomImages: uploadedImages,
-      capacity: type === "Double" ? 2 : type === "Triple" ? 3 : 1
     };
 
-    foundBranch.rooms.push(newRoom);
-    await foundBranch.save();
-    console.log(newRoom)
+    // 🔥 3️⃣ Save room in PropertyBranch
+    branch.rooms.push(newRoom);
+    await branch.save();
 
-    // Redis cache invalidation
+    // ♻️ Redis cleanup
     if (redisClient) {
-      const roomKeys = await redisClient.keys(`room-*`);
-      if (roomKeys.length) await redisClient.del(roomKeys);
-      const branchKeys = await redisClient.keys(`branches-*`);
-      if (branchKeys.length) await redisClient.del(branchKeys);
+      await redisClient.del(`branch-${branch._id}`);
+      await redisClient.del(`rooms-branchmanager-${userId}`);
     }
 
-    return res.status(200).json({ success: true, message: "Room added successfully", ROOM: newRoom });
+    return res.status(201).json({
+      success: true,
+      message: "Room added successfully",
+      room: newRoom,
+    });
+
   } catch (error) {
-    console.error("Error Adding Room:", error);
-    return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    console.error("AddRoom Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
+
 
 // ---------------------------
 // GET ALL ROOMS
 // ---------------------------
 exports.AllRooms = async (req, res) => {
   try {
-    const branch = await PropertyBranch.findOne({ branchmanager: req.user._id });
-    if (!branch) return res.status(400).json({ success: false, message: "No Branches Are Found" });
-
-    const cachedKey = `room-${branch._id}`;
-    if (redisClient) {
-      const cached = await redisClient.get(cachedKey);
-      if (cached) return res.status(200).json({ success: true, message: "Rooms from cache", rooms: JSON.parse(cached) });
+    // 🔐 Only branch manager
+    if (req.user.role !== "branch-manager") {
+      return res.status(403).json({
+        success: false,
+        message: "Only branch managers can access rooms",
+      });
     }
 
-    const proprtybranch = await PropertyBranch.find({ branchmanager: req.user._id });
-    const allrooms = proprtybranch.flatMap(b => b.rooms);
+    // 🔥 1️⃣ Get branch manager with property
+    const manager = await branchmanager
+      .findOne({ email: req.user.email })
+      .populate("propertyId");
 
-    if (redisClient) await redisClient.setEx(cachedKey, 3600, JSON.stringify(allrooms));
+    if (!manager || !manager.propertyId) {
+      return res.status(404).json({
+        success: false,
+        message: "No branch assigned to this manager",
+      });
+    }
 
-    return res.status(200).json({ success: true, totalRooms: allrooms.length, rooms: allrooms });
+    const branch = manager.propertyId;
+
+    const cachedKey = `rooms-${branch._id}`;
+
+    // 🔥 Optional Redis cache
+    /*
+    if (redisClient) {
+      const cached = await redisClient.get(cachedKey);
+      if (cached) {
+        return res.status(200).json({
+          success: true,
+          message: "Rooms from cache",
+          totalRooms: JSON.parse(cached).length,
+          rooms: JSON.parse(cached),
+        });
+      }
+    }
+    */
+
+    // 🔥 2️⃣ Get rooms
+    const rooms = branch.rooms || [];
+
+    // 🔥 Cache
+    if (redisClient) {
+      await redisClient.setEx(cachedKey, 3600, JSON.stringify(rooms));
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "All rooms fetched successfully",
+      totalRooms: rooms.length,
+      rooms,
+    });
+
   } catch (error) {
     console.error("AllRooms Error:", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
+
 
 // ---------------------------
 // DELETE ROOM
