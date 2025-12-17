@@ -302,7 +302,7 @@ exports.GetAllBranchByBranchId = async (req, res) => {
 exports.appointBranchManager = async (req, res) => {
   try {
     const userId = req.user._id; // admin/owner id
-    const { name, email, phone } = req.body;
+    const { name, email, phone, branchId } = req.body;
 
     if (!name || !email || !phone) {
       return res.status(400).json({ success: false, message: "Please fill all the fields" });
@@ -317,7 +317,15 @@ exports.appointBranchManager = async (req, res) => {
     const password = "1234"; // temporary password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await Signup.create({
+    const existingUser = await Signup.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "Branch manager already exists with this email",
+      });
+    }
+
+    await Signup.create({
       email,
       role: "branch-manager",
       username: name,
@@ -326,15 +334,14 @@ exports.appointBranchManager = async (req, res) => {
 
     // Step 2️⃣: Create branch manager with the same _id
     const manager = await branchmanager.create({
-      _id: user._id, // same id as Signup
-      propertyId: userId, // admin/owner id
+      propertyId: branchId, // admin/owner id
       name,
       email,
       phone,
     });
 
     // Step 3️⃣: Attach manager to branch
-    foundBranch.branchmanager = manager._id;
+    foundBranch.branchmanager.push(manager._id);
     await foundBranch.save();
 
     // ✅ Redis cache invalidation
@@ -350,7 +357,7 @@ exports.appointBranchManager = async (req, res) => {
       }
 
       await redisClient.del(branchPattern);
-   
+
     }
 
 
@@ -493,47 +500,6 @@ exports.GetAllBranchOwner = async (req, res) => {
 
 
 
-exports.CreateProperty = async (req, res) => {
-
-
-  try {
-
-    const userId = req.user._id;
-    const { name } = req.body;
-
-
-    if (!name) {
-      return res.status(400).json({
-        success: false,
-        message: "please Filled  the name  And Upload"
-      })
-    }
-
-    const allproperty = AllProperty(userId);
-    if (allproperty.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "User have the property Listed"
-      })
-    }
-    const newProperty = await Property.create({
-      name,
-      owner: userId
-    })
-    return res.status(200).json({
-      success: "true",
-      message: "property created Successfully",
-      newProperty
-    })
-  } catch (error) {
-    console.log(error)
-    return res.status(500).json({
-      success: false,
-      message: "Internal server Error"
-    })
-
-  }
-}
 exports.DeleteProperty = async (req, res) => {
   try {
     const { id } = req.params;
