@@ -307,11 +307,15 @@ exports.appointBranchManager = async (req, res) => {
     if (!name || !email || !phone) {
       return res.status(400).json({ success: false, message: "Please fill all the fields" });
     }
+    const branchExists = await PropertyBranch.findOne({ email: req.user.email }).select("_id");
+    if (!branchExists) {
+      return res.status(409).json({
+        success: false,
+        message: "Branch not found with  this email",
+      });
 
-    const foundBranch = await PropertyBranch.findById(branchId).select("_id branchmanager");
-    if (!foundBranch) {
-      return res.status(404).json({ success: false, message: "Branch not found" });
     }
+
 
     // Step 1️⃣: Create user (Signup)
     const password = "1234"; // temporary password
@@ -334,7 +338,7 @@ exports.appointBranchManager = async (req, res) => {
 
     // Step 2️⃣: Create branch manager with the same _id
     const manager = await branchmanager.create({
-      propertyId: branchId, // admin/owner id
+      propertyId: branchExists._id, // admin/owner id
       name,
       email,
       phone,
