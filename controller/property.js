@@ -70,7 +70,7 @@ exports.GetAllBranch = async (req, res) => {
     const manager = await branchmanager.findById(userId).select("_id propertyId");
     if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
 
-    const cachedKey = `branches-${manager.propertyId}-allbranch`;
+    const cachedKey = `branches-${userId}-allbranch`;
 
     if (redisClient) {
       const cached = await redisClient.get(cachedKey);
@@ -199,7 +199,7 @@ exports.AddBranch = async (req, res) => {
       lat, long: lng,
     });
 
-    if (redisClient) await redisClient.del(`branches-${foundProperty._id}-allbranch`);
+    if (redisClient) await redisClient.del(`branches-${req.user._id}-allbranch`);
 
     return res.status(200).json({ success: true, message: "Branch created successfully", createdBranch });
   } catch (error) {
@@ -301,26 +301,33 @@ exports.GetAllBranchByBranchId = async (req, res) => {
 
 exports.appointBranchManager = async (req, res) => {
   try {
-    const userId = req.user._id; // admin/owner id
+    const ownerId = req.user._id;
     const { name, email, phone } = req.body;
+    const branchid=req.params.id
+   
 
     if (!name || !email || !phone) {
-      return res.status(400).json({ success: false, message: "Please fill all the fields" });
-    }
-    const branchExists = await PropertyBranch.findOne({ owner: req.user._id }).select("_id");
-    if (!branchExists) {
-      return res.status(409).json({
+      return res.status(400).json({
         success: false,
-        message: "Branch not found with  this email",
+        message: "Please fill all the fields",
       });
+    }
+    console.log(branchid)
 
+    // Find branch of this owner
+    const branch = await PropertyBranch
+      .findById(branchid)
+
+      console.log(branch)
+
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found",
+      });
     }
 
-
-    // Step 1️⃣: Create user (Signup)
-    const password = "1234"; // temporary password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    // Prevent duplicate users
     const existingUser = await Signup.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -329,48 +336,44 @@ exports.appointBranchManager = async (req, res) => {
       });
     }
 
-    await Signup.create({
+    // 1️⃣ Create auth user
+    const tempPassword = "1234";
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    const user = await Signup.create({
       email,
       role: "branch-manager",
       username: name,
       password: hashedPassword,
     });
 
-    // Step 2️⃣: Create branch manager with the same _id
+    // 2️⃣ Create manager profile
     const manager = await branchmanager.create({
-      propertyId: branchExists._id, // admin/owner id
+      userId: user._id,
+      propertyId: branchid, // link to branch
       name,
       email,
       phone,
+      status: "Active",
     });
 
-    // Step 3️⃣: Attach manager to branch
-    branchExists.branchmanager.push(manager._id);
-    await branchExists.save();
+    // 3️⃣ Attach manager to branch
+    branch.branchmanager = manager._id;
+    await branch.save();
 
-    // ✅ Redis cache invalidation
-    // ✅ Redis cache invalidation
+    // 4️⃣ Redis cache clear
     if (redisClient) {
-
-      const roomPattern = `room-${branchId}-*`;
-      const branchPattern = `branches-${userId}`;
-
-      const roomKeys = await redisClient.keys(roomPattern);
-      if (roomKeys.length > 0) {
-        await redisClient.del(roomKeys);
-      }
-
-      await redisClient.del(branchPattern);
-
+      await redisClient.del(`branches-${ownerId}-allbranch`);
+      await redisClient.del(`branch-${branch._id}`);
     }
 
-
-    return res.status(200).json({
+    return res.status(201).json({
       success: true,
       message: "Branch manager created successfully",
-      branchmanager: manager,
-      branch: foundBranch,
+      manager,
+      branch,
     });
+
   } catch (error) {
     console.error("appointBranchManager Error:", error);
     return res.status(500).json({
@@ -380,9 +383,6 @@ exports.appointBranchManager = async (req, res) => {
     });
   }
 };
-
-
-
 
 
 
@@ -451,32 +451,61 @@ exports.getAllBranchManager = async (req, res) => {
 
 exports.GetAllBranchOwner = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const cachedKey = `branches-${userId}`;
+    const ownerId = req.user._id;
+    const cacheKey = `branches-${ownerId}-allbranch`;
 
     // Check Redis cache
     if (redisClient) {
-      const cached = await redisClient.get(cachedKey);
+      const cached = await redisClient.get(cacheKey);
       if (cached) {
-        return res.status(200).json({ success: true, message: "Branches from cache", allbranch: JSON.parse(cached) });
+        return res.status(200).json({
+          success: true,
+          message: "Branches from cache",
+          allbranch: JSON.parse(cached),
+        });
       }
     }
 
-    const allbranch = await PropertyBranch.find({ owner: userId }).populate('branchmanager');
+    // Fetch all branches for this owner
+    const allbranch = await PropertyBranch.find({ owner: ownerId })
+      .lean();
 
-    if (!allbranch.length) {
-      return res.status(200).json({ success: false, message: "No branches found" });
+    // Attach manager info for each branch
+    const allbranchWithManager = await Promise.all(
+      allbranch.map(async (branch) => {
+        const manager = await branchmanager.findOne({ propertyId: branch._id })
+          .select("name email phone status")
+          .lean();
+        return { ...branch, branchmanager: manager || null };
+      })
+    );
+
+    if (!allbranchWithManager.length) {
+      return res.status(200).json({
+        success: false,
+        message: "No branches found",
+        allbranch: [],
+      });
     }
 
     // Cache result
     if (redisClient) {
-      await redisClient.setEx(cachedKey, 3600, JSON.stringify(allbranch));
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(allbranchWithManager));
     }
 
-    return res.status(200).json({ success: true, message: "All branches", allbranch });
+    return res.status(200).json({
+      success: true,
+      message: "All branches fetched",
+      allbranch: allbranchWithManager,
+    });
+
   } catch (error) {
     console.error("GetAllBranchOwner Error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
 
