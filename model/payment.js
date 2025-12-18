@@ -49,18 +49,9 @@ const PaymentSchema = new mongoose.Schema({
         type: Number,
     },
 
-    razorpay_order_id: {
-        type: String,
-        index: true  
-    },
-
     razorpay_payment_id: {
         type: String,
         index: true   
-    },
-
-    razorpay_signature: {
-        type: String,
     },
 
     date: {

@@ -7,11 +7,15 @@ const crypto = require("crypto");
 const Signup = require("../model/user")
 const redisClient = require("../utils/redis");
 const mongoose = require("mongoose")
+const Booking = require("../model/booking")
+
+
+
 
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
-    key_id: process.env.razorpay_payment_id,        // Your Razorpay Key ID
-    key_secret: process.env.RZP_KEY_SECRET // Your Razorpay Key Secret
+    key_id: process.env.RAZORPAY_KEY_ID,        // Your Razorpay Key ID
+    key_secret: process.env.RAZORPAY_KEY_SECRET // Your Razorpay Key Secret
 });
 
 exports.getAllbranchPayments = async (req, res) => {
@@ -73,7 +77,7 @@ exports.makingpayment = async (req, res) => {
     try {
         const { amount, currency = "INR" } = req.body;
 
-        // 1️⃣ Validate amount
+
         if (!amount || isNaN(amount) || Number(amount) <= 0) {
             return res.status(400).json({
                 success: false,
@@ -81,23 +85,24 @@ exports.makingpayment = async (req, res) => {
             });
         }
 
-        // 2️⃣ Prepare Razorpay order options
+
         const options = {
-            amount: Number(amount), // Razorpay expects amount in paise
+            amount: Number(amount) * 100, // Razorpay requires paisa
             currency,
             receipt: `receipt_${Date.now()}`,
             payment_capture: 1
         };
 
-        // 3️⃣ Create order
+
+
         const order = await razorpay.orders.create(options);
 
-        // 4️⃣ Clear payment cache for this manager
+
         if (redisClient) {
             await redisClient.del(`payment-${req.user._id}`);
         }
 
-        // 5️⃣ Send response
+
         return res.status(200).json({
             success: true,
             order
@@ -113,136 +118,9 @@ exports.makingpayment = async (req, res) => {
 };
 
 
-
-
-// exports.verifying = async (req, res) => {
-//     const session = await mongoose.startSession();
-//     session.startTransaction();
-
-//     try {
-//         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, roomId, amount } = req.body;
-
-//         // 1️⃣ Fetch user
-//         const user = await Signup.findById(req.user._id).session(session);
-//         if (!user) return res.status(400).json({ success: false, message: "User not found" });
-
-//         // 2️⃣ Fetch branch and room
-//         const branchDoc = await PropertyBranch.findOne({ "rooms._id": roomId }).session(session);
-//         if (!branchDoc) return res.status(400).json({ success: false, message: "Branch not found" });
-
-//         const room = branchDoc.rooms.id(roomId);
-//         if (!room) return res.status(400).json({ success: false, message: "Room not found" });
-
-//         // 3️⃣ Verify payment signature
-//         if (razorpay_payment_id && razorpay_signature) {
-//             const generated_signature = crypto
-//                 .createHmac("sha256", process.env.RZP_KEY_SECRET)
-//                 .update(razorpay_order_id + "|" + razorpay_payment_id)
-//                 .digest("hex");
-
-//             if (generated_signature !== razorpay_signature) {
-//                 return res.status(400).json({ success: false, message: "Invalid signature" });
-//             }
-//         } else if (razorpay_payment_id) {
-//             const payment = await rzp.payments.fetch(razorpay_payment_id);
-//             if (payment.status !== "captured") {
-//                 return res.status(400).json({ success: false, message: "Payment not completed yet" });
-//             }
-//         } else {
-//             return res.status(400).json({ success: false, message: "Payment not completed yet" });
-//         }
-
-//         // 4️⃣ Determine rent and capacity
-//         const name = user.username;
-//         const roomNumber = room.roomNumber;
-//         const Rent = room.price || room.rentperday || room.rentperNight || room.rentperhour;
-//         const branchId = room.branch;
-
-//         let capacity = 1;
-//         if (room.category === "Pg") {
-//             capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
-//         }
-
-//         // 5️⃣ Atomic room update & tenant creation
-//         if (room.occupied >= capacity) {
-//             return res.status(400).json({ success: false, message: "Room full" });
-//         }
-//         if (!room.verified) return res.status(400).json({ success: false, message: "Room not verified" });
-
-//         const newTenant = await Tenant.create(
-//             [
-//                 {
-//                     branch: branchId,
-//                     name,
-//                     Rent,
-//                     dues: 0,
-//                     advanced: 0,
-//                     roomNumber,
-//                 },
-//             ],
-//             { session }
-//         );
-
-
-//         room.occupied += 1;
-//         room.vacant = Math.max(0, capacity - room.occupied);
-//         room.availabilityStatus = room.occupied >= capacity ? "Occupied" : "Available";
-
-//         branchDoc.markModified("rooms");
-//         await branchDoc.save({ session });
-
-//         // 6️⃣ Payment creation
-//         await Payment.create(
-//             [
-//                 {
-//                     tenantId: req.user._id,
-//                     branch: branchId,
-//                     mode: "Online",
-//                     tilldatestatus: "paid",
-//                     amountpaid: amount,
-//                     razorpay_order_id,
-//                     razorpay_payment_id,
-//                     razorpay_signature,
-//                 },
-//             ],
-//             { session }
-//         );
-
-//         // 7️⃣ Commit transaction
-//         await session.commitTransaction();
-//         session.endSession();
-
-
-//         const branch =await PropertyBranch.findById(branchId);
-
-
-
-//         // 8️⃣ Targeted Redis invalidation
-//         if (redisClient) {
-//             const branchKeys = [payment-${branch.branchmanager}, tenant-${branchId}, room-${branchId}-${roomId}];
-//             for (const key of branchKeys) {
-//                 await redisClient.del(key);
-//             }
-//         }
-
-//         // 9️⃣ Response
-//         return res.status(200).json({
-//             success: true,
-//             message: "Tenant added + Payment verified successfully",
-//             tenant: newTenant[0],
-//             branch: branchDoc,
-//         });
-//     } catch (error) {
-//         await session.abortTransaction();
-//         session.endSession();
-//         console.error("❌ Error verifying payment:", error);
-//         return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
-//     }
-// };
-
-
 exports.verifying = async (req, res) => {
     console.log("💡 Payment verification initiated");
+
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -259,223 +137,113 @@ exports.verifying = async (req, res) => {
 
         /* ------------------ BASIC VALIDATION ------------------ */
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-            console.log("⚠️ Incomplete payment details");
+            console.warn("⚠️ Incomplete payment details");
             return res.status(400).json({
                 success: false,
                 message: "Incomplete payment details",
             });
         }
+        console.log("✅ Payment details validated");
 
-        /* ------------------ USER ------------------ */
-        const user = await Signup.findById(req.user._id).session(session);
-        console.log("👤 Fetched user:", user);
-
-        if (!user) {
-            console.log("❌ User not found");
-            return res.status(400).json({ success: false, message: "User not found" });
+        /* ------------------ FETCH ROOM & BRANCH ------------------ */
+        const branch = await PropertyBranch.findOne({ "rooms._id": roomId }).session(session);
+        if (!branch) {
+            console.error("❌ Branch not found for roomId:", roomId);
+            throw new Error("Branch not found");
         }
-
-        /* ------------------ IDEMPOTENCY CHECK ------------------ */
-        const existingPayment = await Payment.findOne({ razorpay_payment_id }).session(session);
-        console.log("💳 Existing payment check:", existingPayment);
-
-        if (existingPayment) {
-            await session.commitTransaction();
-            session.endSession();
-            console.log("ℹ️ Payment already processed");
-            return res.status(200).json({
-                success: true,
-                message: "Payment already processed",
-            });
-        }
-
-        /* ------------------ SIGNATURE VERIFICATION ------------------ */
-        const generatedSignature = crypto
-            .createHmac("sha256", process.env.RZP_KEY_SECRET)
-            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-            .digest("hex");
-
-        console.log("🔑 Generated signature:", generatedSignature);
-
-        if (generatedSignature !== razorpay_signature) {
-            console.log("❌ Invalid payment signature");
-            return res.status(400).json({
-                success: false,
-                message: "Invalid payment signature",
-            });
-        }
-
-        /* ------------------ FETCH BRANCH + ROOM ------------------ */
-        const branchDoc = await PropertyBranch.findOne({
-            "rooms._id": roomId,
-        }).session(session);
-        console.log("🏢 Fetched branch document:", branchDoc);
-
-        if (!branchDoc) {
-            console.log("❌ Branch not found");
-            return res.status(400).json({ success: false, message: "Branch not found" });
-        }
-
-        const room = branchDoc.rooms.id(roomId);
-        console.log("🚪 Fetched room:", room);
-
+        const room = branch.rooms.id(roomId);
         if (!room) {
-            console.log("❌ Room not found");
-            return res.status(400).json({ success: false, message: "Room not found" });
+            console.error("❌ Room not found in branch:", branch._id);
+            throw new Error("Room not found");
+        }
+        console.log("🏠 Branch & Room fetched successfully:", branch._id, room.roomNumber);
+
+        if (room.occupied >= room.capacity) {
+            console.warn("⚠️ Room full:", room.roomNumber);
+            throw new Error("Room full");
         }
 
-        if (!room.verified) {
-            console.log("⚠️ Room not verified");
-            return res.status(400).json({ success: false, message: "Room not verified" });
-        }
-
-        /* ------------------ CAPACITY LOGIC ------------------ */
-        let capacity = 1;
-        if (room.category === "Pg") {
-            capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
-        }
-        console.log("📊 Room capacity determined:", capacity);
-
-        /* ------------------ ATOMIC ROOM UPDATE ------------------ */
-        const updatedBranch = await PropertyBranch.findOneAndUpdate(
-            {
-                _id: branchDoc._id,
-                rooms: {
-                    $elemMatch: {
-                        _id: roomId,
-                        occupied: { $lt: capacity },
-                    },
+        /* ------------------ CREATE BOOKING ------------------ */
+        const booking = await Booking.create(
+            [{
+                bookingId: razorpay_order_id,
+                email: req.user.email,
+                branch: branch._id,
+                room: room._id,
+                roomNumber: room.roomNumber,
+                paymentSource: "online",
+                status: "pending",
+                amount: {
+                    totalAmount: amount.totalAmount || 0,
+                    payableAmount: amount.payableAmount || 0,
+                    walletUsed: amount.walletUsed || 0,
                 },
-            },
-            {
-                $inc: { "rooms.$.occupied": 1 },
-            },
-            { session, new: true }
-        );
-        console.log("🔄 Updated branch after room occupancy increment:", updatedBranch);
-
-        if (!updatedBranch) {
-            console.log("❌ Room is already full");
-            return res.status(400).json({
-                success: false,
-                message: "Room is already full",
-            });
-        }
-
-        const updatedRoom = updatedBranch.rooms.id(roomId);
-
-        updatedRoom.vacant = Math.max(0, capacity - updatedRoom.occupied);
-        updatedRoom.availabilityStatus =
-            updatedRoom.occupied >= capacity ? "Occupied" : "Available";
-
-        updatedBranch.markModified("rooms");
-        await updatedBranch.save({ session });
-        console.log("✅ Room availability updated:", updatedRoom);
-
-        /* ------------------ TENANT CREATION ------------------ */
-        const Rent = room.price || room.rentperday || room.rentperNight || room.rentperhour;
-        console.log("💰 Calculated rent:", Rent);
-
-        const newTenant = await Tenant.create(
-            [
-                {
-                    branch: room.branch,
-                    name: user.username,
-                    Rent,
-                    tenantId: req.user._id,
-                    email: req.user.email,
-                    dues: 0,
-                    advanced: 0,
-                    roomNumber: room.roomNumber,
+                razorpay: {
+                    orderId: razorpay_order_id,
+                    paymentId: razorpay_payment_id,
+                    signature: razorpay_signature,
                 },
-            ],
+                userId: req.user._id,
+                username: req.user.username,
+            }],
             { session }
         );
-        console.log("🆕 Tenant created:", newTenant[0]);
-
-        /* ------------------ PAYMENT RECORD ------------------ */
-        const paymentRecord = await Payment.create(
-            [
-                {
-                    tenantId: newTenant[0]._id,
-                    userId: user._id,
-                    branch: room.branch,
-                    mode: "Online",
-                    email:req.user.email,
-                    tilldatestatus: "paid",
-                    amountpaid: amount.payableAmount,
-                    walletused:amount.walletUsed||0,
-                    razorpay_order_id,
-                    razorpay_payment_id,
-                    razorpay_signature,
-                },
-            ],
-            { session }
-        );
-        console.log("💳 Payment record created:", paymentRecord[0]);
-
-        /* ------------------ COMMIT ------------------ */
-        await session.commitTransaction();
-        session.endSession();
-        console.log("🎉 Transaction committed successfully");
-
-        user.walletBalance-=amount.walletUsed;
-        await user.save();
+        console.log("🧾 Booking created:", booking[0]._id);
 
         /* ------------------ REDIS CACHE INVALIDATION ------------------ */
         try {
             if (redisClient?.isOpen) {
-
+                console.log("♻️ Invalidating Redis cache...");
                 const deletePromises = [
                     redisClient.del("all-pg"),
-                    redisClient.del(`tenant-branch-${room.branch}`),
-                    redisClient.del(`room-${room.branch}-${roomId}`),
-                    redisClient.del(`payment-${branchDoc.branchmanager}`),
+                    redisClient.del(`tenant-branch-${branch._id}`),
+                    redisClient.del(`room-${branch._id}-${roomId}`),
+                    redisClient.del(`payment-${branch.branchmanager}`),
                     redisClient.del(`tenant-${req.user._id}-booking`),
-                    redisClient.del(`tenant-${branchDoc.branchmanager}-status`)
+                    redisClient.del(`tenant-${branch.branchmanager}-status`)
                 ];
 
-                // ⚠️ Use SCAN instead of KEYS (production safe)
                 const stream = redisClient.scanIterator({
-                    MATCH: `branches-${branchDoc._id}-*`,
+                    MATCH: `branches-${branch._id}-*`,
                     COUNT: 100,
                 });
 
                 for await (const key of stream) {
                     deletePromises.push(redisClient.del(key));
+                    console.log("🗑️ Deleted cache key:", key);
                 }
 
                 await Promise.allSettled(deletePromises);
-
-                console.log("🗑️ Redis cache invalidated safely");
+                console.log("✅ Redis cache invalidated successfully");
             }
         } catch (redisError) {
             console.error("⚠️ Redis invalidation failed:", redisError);
         }
 
+        await session.commitTransaction();
+        console.log("✅ Transaction committed successfully");
 
         /* ------------------ RESPONSE ------------------ */
+        const updatedRoom = branch.rooms.id(roomId);
         return res.status(200).json({
             success: true,
             message: "Payment verified & tenant added successfully",
-            tenant: newTenant[0],
+            booking: booking[0],
             room: updatedRoom,
         });
 
     } catch (error) {
         await session.abortTransaction();
-        session.endSession();
         console.error("❌ Payment verification error:", error);
-
         return res.status(500).json({
             success: false,
             message: "Internal server error",
         });
+    } finally {
+        session.endSession();
+        console.log("🔚 Session ended");
     }
 };
-
-
-
 
 
 exports.createPayment = async (req, res) => {
@@ -537,7 +305,7 @@ exports.createPayment = async (req, res) => {
             tenantId,
             branch,
             amountpaid,
-            email:foundtenant.email,
+            email: foundtenant.email,
             tilldateAdvance: foundtenant.advanced,
             tilldatedues: foundtenant.dues,
             tilldatestatus: foundtenant.paymentstatus

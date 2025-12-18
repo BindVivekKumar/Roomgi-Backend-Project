@@ -10,6 +10,7 @@ const analyticsRouter = require("./router/analysis");
 const staffRouter = require("./router/staff");
 const paymentRouter = require("./router/payment");
 const ReviewRouter = require("./router/review");
+const webhookrouter = require("./router/webhook");
 const cookieparser = require("cookie-parser");
 
 // Load env variables FIRST
@@ -53,6 +54,7 @@ app.use("/api", analyticsRouter);
 app.use("/api/staff", staffRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/review", ReviewRouter);
+app.use("/api/razorpay", webhookrouter);
 
 // Database
 mongoose

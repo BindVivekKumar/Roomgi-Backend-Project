@@ -8,6 +8,9 @@ const Uploadmedia = require("../utils/cloudinary.js")
 const deletemedia = require("../utils/cloudinary.js")
 const axios = require('axios')
 
+const Booking = require("../model/booking")
+
+
 
 
 
@@ -680,13 +683,6 @@ exports.AddRoom = async (req, res) => {
 };
 
 
-
-// ---------------------------
-// GET ALL ROOMS
-// ---------------------------
-// ---------------------------
-// GET ALL ROOMS (FINAL)
-// ---------------------------
 exports.AllRooms = async (req, res) => {
   try {
     if (req.user.role !== "branch-manager") {
