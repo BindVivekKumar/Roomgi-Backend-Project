@@ -15,12 +15,12 @@ const RoomSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
- personalreview: [{
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Review",
-  default: []   // 🔥 VERY IMPORTANT
-}]
-,
+    personalreview: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Review",
+        default: []   // 🔥 VERY IMPORTANT
+    }]
+    ,
 
 
     hoteltype: {
@@ -47,7 +47,14 @@ const RoomSchema = new mongoose.Schema({
         type: String,
         enum: ["Single", "Double", "Triple"],
     },
-
+    occupiedRentalRoom: {
+        type: Number,
+        default: 0,
+    },
+    occupiedRentalRoom: {
+        type: Number,
+        default: 0,
+    },
     city: {
         type: String,
         index: true  // 🔥 fast room search by city
