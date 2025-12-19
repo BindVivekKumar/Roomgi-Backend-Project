@@ -1,8 +1,7 @@
+// queue.js
 const { Queue } = require("bullmq");
 const redis = require("./utils/a");
 
-const paymentQueue = new Queue("paymentQueue", {
-  connection: redis,
-});
+const paymentQueue = new Queue("paymentQueue", { connection: redis });
 
-module.exports = paymentQueue;
+module.exports = { paymentQueue }; // ✅ export as object
