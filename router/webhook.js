@@ -6,7 +6,7 @@ const router = express.Router();
 
 // 🔔 Razorpay will call this route
 router.post(
-  "/webhook",
+  "/webhooks",
   express.raw({ type: "application/json" }), // ⚠️ IMPORTANT
   paymentWebhook
 );
