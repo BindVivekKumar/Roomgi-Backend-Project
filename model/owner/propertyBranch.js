@@ -21,6 +21,7 @@ const RoomSchema = new mongoose.Schema({
         default: []   // 🔥 VERY IMPORTANT
     }]
     ,
+    advancedmonth: Number,
 
 
     hoteltype: {
@@ -51,7 +52,7 @@ const RoomSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
-    occupiedRentalRoom: {
+    occupiedhotelroom: {
         type: Number,
         default: 0,
     },
@@ -64,6 +65,16 @@ const RoomSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
+    services:[
+        {
+            price:{
+                type:Number
+            },
+            name:{
+                type:String
+            },
+        }
+    ],
 
     verified: {
         type: Boolean,

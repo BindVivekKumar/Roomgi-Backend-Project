@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const Booking = require("../model/user/booking");
 const PropertyBranch = require("../model/owner/propertyBranch");
 const Tenant = require("../model/branchmanager/tenants");
-const Payment = require("../model/branchmanager/payment");
+const Payment = require("../model/payment");
 const redis = require("../utils/a"); // ioredis again
 
 
@@ -92,6 +92,7 @@ const paymentWorker = new Worker(
             totalAmount: booking.amount.totalAmount,
             email: booking.email,
             branch: branch._id,
+            advancedpaid:room.advancedmonth?room.price*room.advancedmonth:0,
           },
         ],
         { session }

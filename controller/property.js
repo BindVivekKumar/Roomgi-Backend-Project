@@ -550,9 +550,19 @@ exports.AddRoom = async (req, res) => {
         message: "Only branch managers can add rooms",
       });
     }
+    // Parse services from frontend
+    let service;
+    if (typeof req.body.services === "string") {
+      service = JSON.parse(req.body.services);
+    } else {
+      service = req.body.services; // already an object
+    }
+
+
 
     const userId = req.user._id;
     const imageFiles = req.files?.images || [];
+    console.log(req.body)
 
     const {
       roomNumber,
@@ -574,6 +584,8 @@ exports.AddRoom = async (req, res) => {
       roomtype,
       renttype,
       flattype,
+      services,
+      advancedmonth
     } = req.body;
 
     if (!roomNumber || !category) {
@@ -631,6 +643,7 @@ exports.AddRoom = async (req, res) => {
       roomNumber: Number(roomNumber),
       category,
       city: city || branch.city,
+      services: service || [],
 
       type: category === "Pg" ? type : undefined,
       price: category !== "Hotel" ? price : undefined,
@@ -656,6 +669,7 @@ exports.AddRoom = async (req, res) => {
 
       vacant: capacity,
       capacity,
+      advancedmonth:advancedmonth,
 
       createdBy: userId,
       branch: branch._id,

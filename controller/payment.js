@@ -1,4 +1,4 @@
-const Payment = require("../model/branchmanager/payment")
+const Payment = require("../model/payment")
 const PropertyBranch = require("../model/owner/propertyBranch")
 const Expense = require("../model/branchmanager/expenses")
 const Tenant = require("../model/branchmanager/tenants")

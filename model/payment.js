@@ -7,12 +7,16 @@ const PaymentSchema = new mongoose.Schema({
         required: true,
         index: true   // 🔥 fast tenant-history search
     },
-
-    roomId: [{
+    razorpay_payment_id: {
         type: String,
+        index: true
+    },
+
+    roomNumber: [{
+        type: Number,
     }],
-    email:{
-        type:String
+    email: {
+        type: String
     },
 
     branch: {
@@ -27,12 +31,24 @@ const PaymentSchema = new mongoose.Schema({
         enum: ["Online", "Offline"],
         default: "Offline"
     },
-
-    tilldatestatus: {
+    advancedpaid:{
+         type: Number,
+        default: 0
+    },
+    status: {
         type: String,
         enum: ["paid", "dues", "over-dues"],
         default: "dues",
-        index: true  
+        index: true
+    },
+      amountpaid: {
+        type: Number,
+    },
+    tilldatestatus: {
+        type: String,
+        enum: ["paid", "dues", "over-dues"],
+        default: "paid",
+        index: true
     },
 
     tilldateAdvance: {
@@ -43,21 +59,6 @@ const PaymentSchema = new mongoose.Schema({
     tilldatedues: {
         type: Number,
         default: 0
-    },
-
-    amountpaid: {
-        type: Number,
-    },
-
-    razorpay_payment_id: {
-        type: String,
-        index: true   
-    },
-
-    date: {
-        type: Date,
-        default: Date.now,
-        index: true   
     },
 
 }, { timestamps: true });

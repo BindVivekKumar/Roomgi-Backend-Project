@@ -1,7 +1,7 @@
 
 
 const Tenant = require("../model/branchmanager/tenants")
-const Payment = require("../model/branchmanager/payment")
+const Payment = require("../model/payment")
 const PropertyBranch = require("../model/owner/propertyBranch")
 const Complaint = require("../model/user/complaints")
 const redisClient = require("../utils/redis");
