@@ -65,15 +65,14 @@ const paymentWorker = new Worker(
       const tenant = await Tenant.create(
         [
           {
-              branch: branch._id,
+            branch: branch._id,
             tenantId: booking.userId,
             roomNumber: room.roomNumber,
-            securityDeposit:booking.securityDeposit,
-          
+            securityDeposit: booking.securityDeposit,
+            advanced: room.price,
             rent: room.price || room.rentperday || room.rentperNight || room.rentperhour,
             email: booking.email,
             name: booking.username,
-            securityDeposit: room.advancedmonth ? room.price * room.advancedmonth : 0,
           },
         ],
         { session }
@@ -95,7 +94,7 @@ const paymentWorker = new Worker(
             totalAmount: booking.amount.totalAmount,
             email: booking.email,
             branch: branch._id,
-            rent:room.price,
+            rent: room.price,
             paymentInMonth: new Date().toISOString().slice(0, 7)
 
 

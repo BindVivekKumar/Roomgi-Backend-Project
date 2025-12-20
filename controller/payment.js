@@ -242,7 +242,7 @@ exports.verifying = async (req, res) => {
             email: req.user.email,
             branch: branch._id,
             room: room._id,
-            securityDeposit: room.advancedmonth,
+            securityDeposit: room.advancedmonth*(room.price||room.rentperday||room.rentperhour||room.rentperNight),
             roomNumber: room.roomNumber,
             paymentSource: "online",
             status: "processing",
@@ -309,7 +309,7 @@ exports.verifyingRentPayment = async (req, res) => {
     try {
         session.startTransaction();
 
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenantId, amount,response,walletUsed } = req.body;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenantId, amount, response, walletUsed } = req.body;
 
 
         // ---------- BASIC VALIDATION ----------
@@ -330,7 +330,7 @@ exports.verifyingRentPayment = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid payment signature" });
         }
 
-        const foundtenant = await Tenant.findById(tenantId );
+        const foundtenant = await Tenant.findById(tenantId);
 
         if (!foundtenant) {
             return res.status(404).json({
@@ -338,19 +338,19 @@ exports.verifyingRentPayment = async (req, res) => {
                 message: "ot Able to Find Te TEannat "
             })
         }
-     
 
 
-               const payment =   await Payment.create({
-                    tenantId:foundtenant._id,
-                    amountpaid: amount,
-                    walletused: walletUsed||0,
-                    totalAmount: amount+walletUsed,
-                    paymentStatus: "processing",
-                    email: req.user.email,
-                    mode: "online",
 
-                })
+        const payment = await Payment.create({
+            tenantId: foundtenant._id,
+            amountpaid: amount,
+            walletused: walletUsed || 0,
+            totalAmount: amount + walletUsed,
+            paymentStatus: "processing",
+            email: req.user.email,
+            mode: "online",
+
+        })
 
 
 
@@ -368,7 +368,7 @@ exports.verifyingRentPayment = async (req, res) => {
         console.log("📤 Adding job to paymentQueue...");
         await paymentRentQueue.add("adjust-rent", {
             tenantId,
-            paymentId:payment._id,
+            paymentId: payment._id,
             amount
         });
         console.log("✅ Job added to paymentQueue");
