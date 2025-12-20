@@ -34,7 +34,7 @@ app.post(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieparser());
-require("./cron/dailyrentcalculate")
+// require("./cron/dailyrentcalculate")
 
 app.use(
   cors({
