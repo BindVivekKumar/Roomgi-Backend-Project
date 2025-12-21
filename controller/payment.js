@@ -242,7 +242,7 @@ exports.verifying = async (req, res) => {
             email: req.user.email,
             branch: branch._id,
             room: room._id,
-            securityDeposit: room.advancedmonth*(room.price||room.rentperday||room.rentperhour||room.rentperNight),
+            securityDeposit: room.advancedmonth * (room.price || room.rentperday || room.rentperhour || room.rentperNight),
             roomNumber: room.roomNumber,
             paymentSource: "online",
             status: "processing",
@@ -300,106 +300,232 @@ exports.verifying = async (req, res) => {
 
 
 
+// exports.verifyingRentPayment = async (req, res) => {
+//     console.log("💡 Payment verification initiated");
+
+//     const session = await mongoose.startSession();
+//     let committed = false;
+
+//     try {
+//         session.startTransaction();
+
+//         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenantId, amount, response, walletUsed } = req.body;
+
+
+//         // ---------- BASIC VALIDATION ----------
+//         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+//             console.log("❌ Incomplete payment details");
+//             return res.status(400).json({ success: false, message: "Incomplete payment details" });
+//         }
+
+//         // ---------- SIGNATURE VERIFICATION ----------
+//         const generatedSignature = crypto
+//             .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+//             .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+//             .digest("hex");
+
+
+//         if (generatedSignature !== razorpay_signature) {
+//             console.log("❌ Invalid payment signature");
+//             return res.status(400).json({ success: false, message: "Invalid payment signature" });
+//         }
+
+//         const foundtenant = await Tenant.findById(tenantId);
+
+//         if (!foundtenant) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "ot Able to Find Te TEannat "
+//             })
+//         }
+
+
+//         const paidAmount = Number(amount);
+//         const walletAmount = Number(walletUsed || 0);
+
+//         if (isNaN(paidAmount) || isNaN(walletAmount)) {
+//             throw new Error("Invalid payment amount");
+//         }
+
+
+
+
+//         const payment = await Payment.create({
+//             tenantId: foundtenant._id,
+//             amountpaid: amount,
+//             walletused: walletUsed || 0,
+//             totalAmount: walletAmount + paidAmount,
+//             paymentStatus: "processing",
+//             email: req.user.email,
+//             mode: "online",
+
+//         })
+
+
+
+
+//         // ---------- REDIS INVALIDATION ----------
+//         console.log("♻️ Invalidating Redis cache...");
+//         await Promise.allSettled([
+//             redisClient.del("all-pg"),
+//             redisClient.del(`tenant-branch-${branch._id}`),
+//             redisClient.del(`room-${branch._id}-${roomId}`),
+//         ]);
+//         console.log("✅ Redis cache cleared");
+
+//         // ---------- PUSH TO WORKER ----------
+//         console.log("📤 Adding job to paymentQueue...");
+//         await paymentRentQueue.add("adjust-rent", {
+//             tenantId,
+//             paymentId: payment._id,
+//             amount
+//         });
+//         console.log("✅ Job added to paymentQueue");
+
+//         // ---------- COMMIT TRANSACTION ----------
+//         await session.commitTransaction();
+//         committed = true;
+//         console.log("✅ Transaction committed");
+
+//         return res.status(200).json({ success: true, message: "Payment verified successfully", booking: booking[0] });
+
+//     } catch (error) {
+//         if (!committed) {
+//             await session.abortTransaction();
+//             console.log("⚠️ Transaction aborted due to error");
+//         }
+//         console.error("❌ Payment verification error:", error);
+//         return res.status(500).json({ success: false, message: error.message || "Internal server error" });
+//     } finally {
+//         session.endSession();
+//         console.log("🛑 Session ended");
+//     }
+// };
+
+
+
+
+
+
+
+
 exports.verifyingRentPayment = async (req, res) => {
-    console.log("💡 Payment verification initiated");
+  console.log("💡 Payment verification initiated");
 
-    const session = await mongoose.startSession();
-    let committed = false;
+  const session = await mongoose.startSession();
+  let committed = false;
 
-    try {
-        session.startTransaction();
+  try {
+    session.startTransaction();
 
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenantId, amount, response, walletUsed } = req.body;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      tenantId,
+      amount,
+      walletUsed
+    } = req.body;
 
-
-        // ---------- BASIC VALIDATION ----------
-        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-            console.log("❌ Incomplete payment details");
-            return res.status(400).json({ success: false, message: "Incomplete payment details" });
-        }
-
-        // ---------- SIGNATURE VERIFICATION ----------
-        const generatedSignature = crypto
-            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-            .digest("hex");
-
-
-        if (generatedSignature !== razorpay_signature) {
-            console.log("❌ Invalid payment signature");
-            return res.status(400).json({ success: false, message: "Invalid payment signature" });
-        }
-
-        const foundtenant = await Tenant.findById(tenantId);
-
-        if (!foundtenant) {
-            return res.status(404).json({
-                success: false,
-                message: "ot Able to Find Te TEannat "
-            })
-        }
-
-
-
-        const payment = await Payment.create({
-            tenantId: foundtenant._id,
-            amountpaid: amount,
-            walletused: walletUsed || 0,
-            totalAmount: amount + walletUsed,
-            paymentStatus: "processing",
-            email: req.user.email,
-            mode: "online",
-
-        })
-
-
-
-
-        // ---------- REDIS INVALIDATION ----------
-        console.log("♻️ Invalidating Redis cache...");
-        await Promise.allSettled([
-            redisClient.del("all-pg"),
-            redisClient.del(`tenant-branch-${branch._id}`),
-            redisClient.del(`room-${branch._id}-${roomId}`),
-        ]);
-        console.log("✅ Redis cache cleared");
-
-        // ---------- PUSH TO WORKER ----------
-        console.log("📤 Adding job to paymentQueue...");
-        await paymentRentQueue.add("adjust-rent", {
-            tenantId,
-            paymentId: payment._id,
-            amount
-        });
-        console.log("✅ Job added to paymentQueue");
-
-        // ---------- COMMIT TRANSACTION ----------
-        await session.commitTransaction();
-        committed = true;
-        console.log("✅ Transaction committed");
-
-        return res.status(200).json({ success: true, message: "Payment verified successfully", booking: booking[0] });
-
-    } catch (error) {
-        if (!committed) {
-            await session.abortTransaction();
-            console.log("⚠️ Transaction aborted due to error");
-        }
-        console.error("❌ Payment verification error:", error);
-        return res.status(500).json({ success: false, message: error.message || "Internal server error" });
-    } finally {
-        session.endSession();
-        console.log("🛑 Session ended");
+    /* ---------------- BASIC VALIDATION ---------------- */
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Incomplete payment details"
+      });
     }
+
+    /* ---------------- SIGNATURE VERIFY ---------------- */
+    const generatedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payment signature"
+      });
+    }
+
+    /* ---------------- TENANT ---------------- */
+    const foundtenant = await Tenant.findById(tenantId).session(session);
+    if (!foundtenant) {
+      throw new Error("Tenant not found");
+    }
+
+    /* ---------------- SAFE AMOUNT ---------------- */
+    const paidAmount = Number(amount);
+    const walletAmount = Number(walletUsed || 0);
+
+    if (isNaN(paidAmount) || isNaN(walletAmount)) {
+      throw new Error("Invalid payment amount");
+    }
+
+    const totalAmount = paidAmount + walletAmount;
+
+    console.log("💰 Payment amounts:", {
+      paidAmount,
+      walletAmount,
+      totalAmount
+    });
+
+    /* ---------------- PAYMENT CREATE ---------------- */
+    const payment = await Payment.create(
+      [{
+        tenantId: foundtenant._id,
+        amountpaid: paidAmount,
+        walletused: walletAmount,
+        totalAmount: totalAmount,
+        paymentStatus: "processing",
+        email: req.user.email,
+        mode: "online",
+        razorpay: {
+          orderId: razorpay_order_id,
+          paymentId: razorpay_payment_id
+        }
+      }],
+      { session }
+    );
+
+    /* ---------------- REDIS INVALIDATION ---------------- */
+    await Promise.allSettled([
+      redisClient.del("all-pg"),
+      redisClient.del(`tenant-${tenantId}`)
+    ]);
+
+    /* ---------------- QUEUE PUSH ---------------- */
+    await paymentRentQueue.add("adjust-rent", {
+      tenantId,
+      paymentId: payment[0]._id,
+      amount: paidAmount,
+      walletUsed: walletAmount
+    });
+
+    /* ---------------- COMMIT ---------------- */
+    await session.commitTransaction();
+    committed = true;
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment verified successfully",
+      payment: payment[0]
+    });
+
+  } catch (error) {
+    if (!committed) {
+      await session.abortTransaction();
+    }
+    console.error("❌ Payment verification error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  } finally {
+    session.endSession();
+    console.log("🛑 Session ended");
+  }
 };
-
-
-
-
-
-
-
-
 
 
 exports.payRent = async (req, res) => {

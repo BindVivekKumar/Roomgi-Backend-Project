@@ -22,11 +22,11 @@ const bookingSchema = new mongoose.Schema(
             ref: "PropertyBranch",
             required: true,
         },
-        securityDeposit:{
-             type: Number,
-             default:0,
+        securityDeposit: {
+            type: Number,
+            default: 0,
         },
-        
+
 
 
         roomNumber: {
@@ -38,7 +38,12 @@ const bookingSchema = new mongoose.Schema(
         /* ---------- PAYMENT DETAILS ---------- */
         status: {
             type: String,
-            enum: ["pending", "paid", "cancelled", "refunded","processing"],
+            enum: ["pending",
+                "paid",
+                "refund_initiated",
+                "refunded_failed",
+                "refunded",
+                "processing"],
             default: "pending",
             index: true,
         },
@@ -59,6 +64,7 @@ const bookingSchema = new mongoose.Schema(
         razorpay: {
             orderId: String,
             paymentId: String,
+            refundId: String,
             signature: String,
         },
 

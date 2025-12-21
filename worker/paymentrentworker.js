@@ -10,7 +10,6 @@ const paymentWorker = new Worker(
   async (job) => {
     const { tenantId, amount, paymentId } = job.data;
 
-    console.log("🔥 Payment Worker triggered:", job.id);
 
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -89,15 +88,13 @@ const paymentWorker = new Worker(
     } catch (error) {
       await session.abortTransaction();
 
-      // ❌ mark payment failed
+
       if (paymentId) {
         await Payment.findByIdAndUpdate(paymentId, {
           paymentStatus: "failed",
         });
       }
-
-      console.error("❌ Worker error:", error.message);
-      throw error; // BullMQ retry
+      throw error;
     } finally {
       session.endSession();
       console.log("🛑 Worker session ended");

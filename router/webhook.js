@@ -6,7 +6,7 @@ const router = express.Router();
 
 
 router.post(
-  "/webhooks",
+  "/webhook",
   express.raw({ type: "application/json" }),
   paymentWebhook
 );

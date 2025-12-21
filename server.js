@@ -34,7 +34,8 @@ app.post(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieparser());
-// require("./cron/dailyrentcalculate")
+ require("./cron/refund")
+ require("./cron/dailyrentcalculate")
 
 app.use(
   cors({
@@ -83,4 +84,6 @@ app.listen(PORT, () => {
 require("./worker/paymentworker");
 require("./worker/duescalculateworker");
 require("./worker/paymentrentworker");
+require("./worker/refundworker");
+
 console.log("🛠 Payment worker started");

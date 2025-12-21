@@ -7,14 +7,11 @@ const redis = require("../utils/a"); // ioredis again
 const worker = new Worker(
    "duesQueue",
    async (job) => {
-      console.log("🧮 Dues calculation started");
-
-
 
       try {
 
 
-         // ✅ Cursor = memory safe
+
          const cursor = Tenant.find({ status: "active" }).cursor();
 
          for (
@@ -36,7 +33,7 @@ const worker = new Worker(
                (today - fromDate) / (1000 * 60 * 60 * 24)
             );
 
-            // ✅ Already up to date
+
             if (diffDays <= 0) {
                continue;
             }
@@ -45,7 +42,7 @@ const worker = new Worker(
 
 
 
-            // 💰 Calculate dues
+
             const rent = tenant.rent || 0;
             const onedayrent = rent / 30;
 
@@ -77,27 +74,22 @@ const worker = new Worker(
 
 
             }
-         
+
 
 
 
 
             tenant.lastDuesCalculatedAt = today;
-            // 🔄 Update tenant dues
+
             await tenant.save();
          }
 
-
-
-         console.log("✅ Dues calculation completed");
       } catch (error) {
-       
-         console.error("❌ Dues calculation failed:", error);
          throw error;
       }
    },
    {
-      connection:redis,
+      connection: redis,
       concurrency: 3,
       limiter: {
          max: 10,

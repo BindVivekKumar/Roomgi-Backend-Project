@@ -95,32 +95,21 @@ const paymentWorker = new Worker(
             email: booking.email,
             branch: branch._id,
             rent: room.price,
-            paymentInMonth: new Date().toISOString().slice(0, 7)
-
-
-
+            paymentInMonth: new Date().toISOString().slice(0, 7),
+            paymentStatus:"success"
           },
         ],
         { session }
       );
-      console.log("✅ Payment recorded");
-
-      /* ---------- UPDATE BOOKING ---------- */
-      console.log("Updating booking status to 'paid'...");
-      booking.status = "paid";
+        booking.status = "paid";
       await booking.save({ session });
-      console.log("✅ Booking updated");
-
-      /* ---------- REDIS CLEANUP ---------- */
-      console.log("Clearing related Redis keys...");
-      await Promise.allSettled([
+   
+        await Promise.allSettled([
         redis.del("all-pg"),
         redis.del(`tenant-branch-${branch._id}`),
         redis.del(`room-${branch._id}-${booking.room}`),
       ]);
-      console.log("✅ Redis cleanup done");
-
-      await session.commitTransaction();
+          await session.commitTransaction();
       console.log("🚀 Payment processing completed successfully:", razorpay_payment_id);
 
     } catch (error) {

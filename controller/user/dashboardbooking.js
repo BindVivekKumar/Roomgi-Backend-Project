@@ -18,7 +18,6 @@ const mongoose = require("mongoose");
 
 exports.DasboardBooking = async (req, res) => {
   try {
-    console.log("===== DASHBOARD API HIT =====");
 
     const userId = req.user._id; // logged-in user
     const roomId = req.params.id; // room _id from params
@@ -100,7 +99,8 @@ exports.DasboardBooking = async (req, res) => {
         email: tenant.email,
         roomNumber: tenant.roomNumber,
         status: tenant.status,
-        checkInDate: tenant.checkInDate
+        checkInDate: tenant.checkInDate,
+        startDuesFrom:tenant.startDuesFrom
       },
 
       branch: {
