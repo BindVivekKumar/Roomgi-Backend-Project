@@ -272,7 +272,7 @@ exports.verifying = async (req, res) => {
 
         // ---------- PUSH TO WORKER ----------
         console.log("📤 Adding job to paymentQueue...");
-        await paymentQueue.add("process-payment", {
+        await paymentQueue.add("paymentQueue", {
             bookingId: booking[0].bookingId,
             razorpay_payment_id,
         });
