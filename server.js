@@ -70,7 +70,7 @@ app.use("/api/review", require("./router/review"));
 const PORT = process.env.PORT || 5000;
 
 mongoose
-  .connect(process.env. DATABASE_URL)
+  .connect(process.env. MONGODB_URL)
   .then(() => {
     console.log("✅ Database connected");
 
