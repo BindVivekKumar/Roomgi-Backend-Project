@@ -60,8 +60,8 @@ app.use("/api/property", require("./router/property"));
 app.use("/api/tenant", require("./router/tenenant"));
 app.use("/api", require("./router/complain"));
 app.use("/api", require("./router/analysis"));
-app.use("/api/staff", require("./router/staff"));
-app.use("/api/payment", require("./router/payment")); // ❗ NOT webhook
+
+app.use("/api/payment", require("./router/payment")); 
 app.use("/api/review", require("./router/review"));
 
 /* =======================

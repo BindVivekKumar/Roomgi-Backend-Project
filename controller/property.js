@@ -65,19 +65,13 @@ exports.GetAllBranch = async (req, res) => {
     const useremail = req.user.email;
     const userId = req.user._id;
 
-    const cachedKey = `branches-${userId}-allbranch`;
-
-    if (redisClient) {
-      const cached = await redisClient.get(cachedKey);
-      if (cached) return res.status(200).json({ success: true, message: "From cache", allbranch: JSON.parse(cached) });
-    }
-
+ 
 
     const manager = await branchmanager.findOne({ email: useremail });
     if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
 
 
-    const allbranch = await PropertyBranch.find({ branchmanager: manager._id }).lean();
+    const allbranch = await PropertyBranch.find({ owner: req.user._id }).lean();
     console.log("allbranch", allbranch)
 
     if (redisClient) await redisClient.setEx(cachedKey, 3600, JSON.stringify(allbranch));
@@ -164,6 +158,7 @@ exports.DeleteBranch = async (req, res) => {
 // ----------------------
 exports.AddBranch = async (req, res) => {
   try {
+    console.log(req.body)
     const userId = req.user._id;
     const imageFiles = req.files || [];
 
@@ -274,17 +269,36 @@ exports.AddBranch = async (req, res) => {
 
 
 
-
 exports.GetAllBranchByBranchId = async (req, res) => {
   try {
-    const useremail = req.user.email;
-    // Fetch branches only for the current branch manager
-    const branches = await branchmanager.find({ email: useremail }).lean();
+    const branches = await propertyBranch.find({ owner: req.user._id }).lean();
+
+    // For each branch, calculate total capacity and total occupied rooms
+          let totalCapacity = 0;
+      let totalOccupied = 0;
+
+    const allbranch = branches.map(branch => {
+
+      branch.rooms.forEach(room => {
+        // room.capacity already exists? If not, you can calculate from type
+        let roomCapacity = room.capacity || (room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1);
+        totalCapacity += roomCapacity;
+        totalOccupied += room.occupied || 0;
+      });
+
+      // Add the computed totals to the branch object
+      return {
+        ...branch,
+        totalCapacity,
+        totalOccupied
+      };
+    });
+    console.log(allbranch)
 
     return res.status(200).json({
       success: true,
       message: "All branches fetched successfully",
-      allbranch: branches,
+      allbranch,
     });
   } catch (error) {
     console.error("GetAllBranchByBranchId Error:", error);
@@ -295,6 +309,7 @@ exports.GetAllBranchByBranchId = async (req, res) => {
     });
   }
 };
+
 exports.appointBranchManager = async (req, res) => {
   try {
     console.log("appointBranchManager triggered", req.body);
@@ -532,48 +547,6 @@ exports.Removebranchmanager = async (req, res) => {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-exports.changebranchpassword = async (req, res) => {
-  try {
-    const { id, password, confirmPassword } = req.body;
-
-    if (!id || !password || !confirmPassword) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
-    }
-
-    if (password !== confirmPassword) {
-      return res.status(400).json({ success: false, message: "Password and confirm password do not match" });
-    }
-
-    if (password.length < 6 || password.length > 10) {
-      return res.status(400).json({ success: false, message: "Password must be 6-10 characters long" });
-    }
-
-    const branchManager = await branchmanager.findById(id);
-    if (!branchManager) {
-      return res.status(404).json({ success: false, message: "Branch manager not found" });
-    }
-
-    const branchUser = await Signup.findById(id);
-    if (!branchUser) {
-      return res.status(404).json({ success: false, message: "User not found in Signup collection" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    branchManager.pwdchanged = true;
-    await branchManager.save();
-
-    branchUser.password = hashedPassword;
-    await branchUser.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Branch manager password updated successfully",
-    });
-  } catch (error) {
-    console.error("changebranchpassword Error:", error);
-    return res.status(500).json({ success: false, message: "Internal server error", error: error.message });
-  }
-};
 
 
 
@@ -598,33 +571,16 @@ exports.GetAllBranchOwner = async (req, res) => {
     const allbranch = await PropertyBranch.find({ owner: ownerId })
       .lean();
 
-    // Attach manager info for each branch
-    const allbranchWithManager = await Promise.all(
-      allbranch.map(async (branch) => {
-        const manager = await branchmanager.findOne({ propertyId: branch._id })
-          .select("name email phone status")
-          .lean();
-        return { ...branch, branchmanager: manager || null };
-      })
-    );
-
-    if (!allbranchWithManager.length) {
-      return res.status(200).json({
-        success: false,
-        message: "No branches found",
-        allbranch: [],
-      });
-    }
-
+    
     // Cache result
     if (redisClient) {
-      await redisClient.setEx(cacheKey, 3600, JSON.stringify(allbranchWithManager));
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(allbranch));
     }
 
     return res.status(200).json({
       success: true,
       message: "All branches fetched",
-      allbranch: allbranchWithManager,
+      allbranch: allbranch,
     });
 
   } catch (error) {
@@ -720,12 +676,7 @@ exports.DeleteProperty = async (req, res) => {
 
 exports.AddRoom = async (req, res) => {
   try {
-    if (req.user.role !== "branch-manager") {
-      return res.status(403).json({
-        success: false,
-        message: "Only branch managers can add rooms",
-      });
-    }
+    
     // Parse services from frontend
     let service;
     if (typeof req.body.services === "string") {
@@ -770,18 +721,18 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    // 🔥 1️⃣ Find manager (NO POPULATE)
-    const manager = await branchmanager.findOne({ email: req.user.email });
+    // // 🔥 1️⃣ Find manager (NO POPULATE)
+    // const manager = await branchmanager.findOne({ email: req.user.email });
 
-    if (!manager || !manager.propertyId) {
-      return res.status(404).json({
-        success: false,
-        message: "No branch assigned to this manager",
-      });
-    }
+    // if (!manager || !manager.propertyId) {
+    //   return res.status(404).json({
+    //     success: false,
+    //     message: "No branch assigned to this manager",
+    //   });
+    // }
 
     // 🔥 2️⃣ REAL branch document
-    const branch = await PropertyBranch.findById(manager.propertyId);
+    const branch = await PropertyBranch.findOne({owner:req.user.id});
     if (!branch) {
       return res.status(404).json({
         success: false,
@@ -872,44 +823,43 @@ exports.AddRoom = async (req, res) => {
 };
 
 
-exports.AllRooms = async (req, res) => {
-  try {
+// exports.AllRooms = async (req, res) => {
+//   try {
    
-    // 🔥 Find manager
-    const manager = await branchmanager.findOne({ email: req.user.email });
-    if (!manager || !manager.propertyId) {
-      return res.status(404).json({
-        success: false,
-        message: "No branch assigned",
-      });
-    }
+//     // 🔥 Find manager
+//     const manager = await branchmanager.findOne({ email: req.user.email });
+//     if (!manager || !manager.propertyId) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "No branch assigned",
+//       });
+//     }
 
-    // 🔥 REAL branch
-    const branch = await PropertyBranch.findById(manager.propertyId);
+//     // 🔥 REAL branch
+//     const branch = await PropertyBranch.findById(manager.propertyId);
 
-    return res.status(200).json({
-      success: true,
-      totalRooms: branch.rooms.length,
-      rooms: branch.rooms,
-    });
+//     return res.status(200).json({
+//       success: true,
+//       totalRooms: branch.rooms.length,
+//       rooms: branch.rooms,
+//     });
 
-  } catch (error) {
-    console.error("AllRooms Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
-  }
-};
+//   } catch (error) {
+//     console.error("AllRooms Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
 
 exports.ownerAllroom = async (req, res) => {
   try {
     // 1️⃣ Owner ke saare branches nikaalo
     const branches = await propertyBranch
       .find({ owner: req.user.id })
-      .select("rooms name city address");
-
+     
     if (!branches || branches.length === 0) {
       return res.status(404).json({
         success: false,

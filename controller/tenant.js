@@ -5,8 +5,8 @@ const Payment = require("../model/payment")
 const PropertyBranch = require("../model/owner/propertyBranch")
 const Complaint = require("../model/user/complaints")
 const redisClient = require("../utils/redis");
-
-
+const bcrypt = require("bcrypt")
+const Signup = require("../model/user")
 const branchmanager = require("../model/owner/branchmanager")
 
 
@@ -17,6 +17,8 @@ const Booking = require("../model/user/booking")
 
 
 const { validationResult, body } = require("express-validator");
+const propertyBranch = require("../model/owner/propertyBranch");
+const { signupcontroller } = require("./user");
 
 
 // ---------------------------
@@ -34,179 +36,288 @@ exports.validateAddTenant = [
 // Add Tenant
 // ---------------------------
 exports.AddTenants = async (req, res) => {
-    try {
-        // ✅ Validation check
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            return res.status(400).json({ success: false, errors: errors.array() });
-        }
+  try {
+    const {
+      contactNumber,
+      name,
+      email,
+      Rent,
+      dues = 0,
+      advanced = 0,
+      idProof,
+      idProofType,
+      emergencyContactNumber,
+      documentsPhoto,
+      roomNumber,
+      branch
+    } = req.body;
 
-        const {
-            contactNumber,
-            name,
-            email,
-            Rent,
-            dues = 0,
-            advanced = 0,
-            idProof,
-            idProofType,
-            emergencyContactNumber,
-            documentsPhoto,
-            roomNumber,
-            branch
-        } = req.body;
-
-        // 🔹 Find branch
-        const FoundBranch = await PropertyBranch.findById(branch);
-        if (!FoundBranch) return res.status(404).json({ success: false, message: "Branch not found" });
-
-        // 🔹 Find room
-        const roomNum = Number(roomNumber);
-        const room = FoundBranch.rooms.find(r => Number(r.roomNumber) === roomNum);
-        if (!room) return res.status(404).json({ success: false, message: "Room not found" });
-        if (!room.verified) return res.status(400).json({ success: false, message: "Room is not verified" });
-
-        // 🔹 Room capacity check
-        const capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
-        const tenantsInRoom = await Tenant.countDocuments({ branch, roomNumber: roomNum, status: "Active" });
-        if (tenantsInRoom >= capacity) {
-            return res.status(400).json({ success: false, message: "Room already full" });
-        }
-
-        // 🔹 Create tenant
-        const NewTenant = await Tenant.create({
-            branch,
-            contactNumber,
-            name,
-            rent: Rent,
-            dues,
-            mode: "offline",
-            advanced,
-            email,
-            idProof,
-            idProofType,
-            emergencyContactNumber,
-            documentsPhoto,
-            roomNumber: roomNum,
-            branchmanager: req.user._id,
-            status: "Active",
-            checkInDate: new Date()
-        });
-
-
-
-        await Booking.create({
-            bookingId: `OFFLINE-${Date.now()}`,
-            email,
-            username: name,
-            branch,
-            roomNumber: roomNum,
-            status: "paid",
-            paymentSource: "offline",
-            amountPaid: Rent,
-            razorpay: null,
-            collectedBy: req.user._id,
-            userId: req.user._id,
-            checkInDate: new Date(),
-        });
-
-
-        // 🔹 Update room stats
-        room.occupied += 1;
-        room.vacant = Math.max(0, capacity - room.occupied);
-        if (room.occupied >= capacity) room.availabilityStatus = "Occupied";
-        if (!FoundBranch.occupiedRoom.includes(roomNum)) FoundBranch.occupiedRoom.push(roomNum);
-        FoundBranch.totalBeds = Math.max(0, FoundBranch.totalBeds - 1);
-
-        await FoundBranch.save();
-
-        // 🔹 Clear Redis cache
-        if (redisClient) {
-            const keys = await redisClient.keys("tenant-*");
-            if (keys.length) await redisClient.del(keys);
-            const branchKeys = await redisClient.keys("branches-*");
-            if (branchKeys.length) await redisClient.del(branchKeys);
-            const roomKeys = await redisClient.keys("room-*");
-            if (roomKeys.length) await redisClient.del(roomKeys);
-            await redisClient.del("all-pg");
-        }
-
-        return res.status(201).json({ success: true, message: "Tenant added successfully", tenant: NewTenant });
-
-    } catch (error) {
-        console.error("AddTenants Error:", error);
-        return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    /* 🔴 DIRECT VALIDATIONS */
+    if (!branch) {
+      return res.status(400).json({ success: false, message: "Branch is required" });
     }
+
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ success: false, message: "Valid tenant name is required" });
+    }
+
+    if (!contactNumber || contactNumber.trim().length !== 10) {
+      return res.status(400).json({ success: false, message: "Valid 10 digit contact number required" });
+    }
+
+    if (!roomNumber || isNaN(roomNumber)) {
+      return res.status(400).json({ success: false, message: "Valid room number required" });
+    }
+
+    if (!Rent || isNaN(Rent) || Number(Rent) <= 0) {
+      return res.status(400).json({ success: false, message: "Valid rent amount required" });
+    }
+
+    if (Number(advanced) < 0) {
+      return res.status(400).json({ success: false, message: "Advance cannot be negative" });
+    }
+
+    if (Number(dues) < 0) {
+      return res.status(400).json({ success: false, message: "Dues cannot be negative" });
+    }
+
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).json({ success: false, message: "Invalid email format" });
+    }
+
+    /* 🔹 Find branch */
+    const FoundBranch = await PropertyBranch.findById(branch);
+    if (!FoundBranch) {
+      return res.status(404).json({ success: false, message: "Branch not found" });
+    }
+
+    /* 🔹 Find room */
+    const roomNum = Number(roomNumber);
+    const room = FoundBranch.rooms.find(r => Number(r.roomNumber) === roomNum);
+
+    if (!room) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
+
+    if (!room.verified) {
+      return res.status(400).json({ success: false, message: "Room is not verified" });
+    }
+
+    /* 🔹 Capacity check */
+    const capacity =
+      room.type === "Double" ? 2 :
+      room.type === "Triple" ? 3 : 1;
+
+    const tenantsInRoom = await Tenant.countDocuments({
+      branch,
+      roomNumber: roomNum,
+      status: "Active"
+    });
+
+    if (tenantsInRoom >= capacity) {
+      return res.status(400).json({ success: false, message: "Room already full" });
+    }
+
+
+
+    const founduser=await Signup.findOne({email:email});
+    if(!founduser){
+        const  password  = "123456"
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+        await Signup.create({
+            email,
+            username:name,
+            role:"user",
+            password:hashedPassword,
+            phone:contactNumber
+        
+
+        })
+    }
+    /* 🔹 Create tenant */
+    const NewTenant = await Tenant.create({
+      branch,
+      contactNumber: contactNumber.trim(),
+      name: name.trim(),
+      rent: Number(Rent),
+      dues: Number(dues),
+      advanced: Number(advanced),
+      email: email?.trim(),
+      idProof,
+      idProofType,
+      emergencyContactNumber,
+      documentsPhoto,
+      roomNumber: roomNum,
+      branchmanager: req.user._id,
+      status: "Active",
+      mode: "offline",
+      checkInDate: new Date()
+    });
+
+    /* 🔹 Create booking */
+    await Booking.create({
+      bookingId: `OFFLINE-${Date.now()}`,
+      email,
+      username: name,
+      branch,
+      roomNumber: roomNum,
+      status: "paid",
+      paymentSource: "offline",
+      amountPaid: Number(Rent),
+      collectedBy: req.user._id,
+      userId: req.user._id,
+      checkInDate: new Date(),
+    });
+
+    /* 🔹 Update room occupancy based on category */
+    if (room.category === "Rented-Room") {
+      room.occupiedRentalRoom += 1;
+      room.vacant = Math.max(0, capacity - room.occupiedRentalRoom);
+      if (room.occupiedRentalRoom >= capacity) room.availabilityStatus = "Occupied";
+    } else if (room.category === "Hotel") {
+      room.occupiedhotelroom += 1;
+      room.vacant = Math.max(0, capacity - room.occupiedhotelroom);
+      if (room.occupiedhotelroom >= capacity) room.availabilityStatus = "Occupied";
+    } else {
+      room.occupied += 1;
+      room.vacant = Math.max(0, capacity - room.occupied);
+      if (room.occupied >= capacity) room.availabilityStatus = "Occupied";
+    }
+
+    /* 🔹 Update branch */
+    if (!FoundBranch.occupiedRoom.includes(roomNum)) {
+      FoundBranch.occupiedRoom.push(roomNum);
+    }
+
+    FoundBranch.totalBeds = Math.max(0, FoundBranch.totalBeds - 1);
+    await FoundBranch.save();
+
+    /* 🔹 Success response */
+    return res.status(201).json({
+      success: true,
+      message: "Tenant added successfully",
+      tenant: NewTenant
+    });
+
+  } catch (error) {
+    console.error("AddTenants Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message
+    });
+  }
 };
 
 // ---------------------------
 // Mark Tenant Inactive (Checkout)
 // ---------------------------
 exports.MarkTenantInactive = async (req, res) => {
-    try {
-        const { id } = req.params;
-        if (!id) return res.status(400).json({ success: false, message: "Tenant ID is required" });
+  try {
+    const { id } = req.params;
+    if (!id)
+      return res.status(400).json({ success: false, message: "Tenant ID is required" });
 
-        const tenant = await Tenant.findById(id);
-        if (!tenant) return res.status(404).json({ success: false, message: "Tenant not found" });
+    const tenant = await Tenant.findById(id);
+    if (!tenant)
+      return res.status(404).json({ success: false, message: "Tenant not found" });
 
-        const branch = await PropertyBranch.findById(tenant.branch);
-        if (!branch) return res.status(404).json({ success: false, message: "Branch not found" });
+    const branch = await PropertyBranch.findById(tenant.branch);
+    if (!branch)
+      return res.status(404).json({ success: false, message: "Branch not found" });
 
-        const room = branch.rooms.find(r => Number(r.roomNumber) === Number(tenant.roomNumber));
-        if (!room) return res.status(404).json({ success: false, message: "Room not found" });
+    const room = branch.rooms.find(
+      r => Number(r.roomNumber) === Number(tenant.roomNumber)
+    );
+    if (!room)
+      return res.status(404).json({ success: false, message: "Room not found" });
 
-        const capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
+    const capacity =
+      room.type === "Double" ? 2 :
+      room.type === "Triple" ? 3 : 1;
 
-        // 🔹 Calculate dues
-        const payments = await Payment.find({ tenantId: tenant._id });
-        let totalPaid = tenant.advanced || 0;
-        payments.forEach(p => totalPaid += p.amountpaid);
-        const checkIn = new Date(tenant.checkInDate);
-        const checkOut = new Date();
-        const totalMonths = (checkOut.getFullYear() - checkIn.getFullYear()) * 12 + (checkOut.getMonth() - checkIn.getMonth()) + 1;
-        const totalShouldPay = totalMonths * tenant.rent;
+    /* ---------------- PAYMENT CHECK ---------------- */
+    const payments = await Payment.find({ tenantId: tenant._id });
+    let totalPaid = tenant.advanced || 0;
+    payments.forEach(p => totalPaid += p.amountpaid);
 
-        if (tenant.dues > 0 || totalPaid < totalShouldPay) {
-            return res.status(400).json({
-                success: false,
-                message: `Clear dues before checkout. Pending: ₹${totalShouldPay - totalPaid}`
-            });
-        }
+    const checkIn = new Date(tenant.checkInDate);
+    const checkOut = new Date();
 
-        // 🔹 Checkout
-        tenant.status = "In-Active";
-        tenant.checkedoutdate = checkOut;
+    const totalMonths =
+      (checkOut.getFullYear() - checkIn.getFullYear()) * 12 +
+      (checkOut.getMonth() - checkIn.getMonth()) + 1;
 
-        room.occupied = Math.max(0, room.occupied - 1);
-        room.vacant = capacity - room.occupied;
-        room.availabilityStatus = room.occupied >= capacity ? "Occupied" : "Available";
+    const totalShouldPay = totalMonths * tenant.rent;
 
-        if (room.occupied === 0) branch.occupiedRoom = branch.occupiedRoom.filter(rn => Number(rn) !== Number(room.roomNumber));
-        branch.totalBeds += 1;
-
-        await tenant.save();
-        await branch.save();
-
-        // 🔹 Clear Redis cache
-        if (redisClient) {
-            const keys = await redisClient.keys("tenant-*");
-            if (keys.length) await redisClient.del(keys);
-            const branchKeys = await redisClient.keys("branches-*");
-            if (branchKeys.length) await redisClient.del(branchKeys);
-            const roomKeys = await redisClient.keys("room-*");
-            if (roomKeys.length) await redisClient.del(roomKeys);
-            await redisClient.del("all-pg");
-        }
-
-        return res.status(200).json({ success: true, message: "Tenant checked out successfully", tenant });
-
-    } catch (error) {
-        console.error("MarkTenantInactive Error:", error);
-        return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+    if (totalPaid < totalShouldPay) {
+      return res.status(400).json({
+        success: false,
+        message: `Clear dues before checkout. Pending: ₹${totalShouldPay - totalPaid}`
+      });
     }
-};
 
+    /* ---------------- CHECKOUT ---------------- */
+    tenant.status = "In-Active";
+    tenant.checkedoutdate = checkOut;
+
+    if (room.category === "Pg") {
+      room.occupied = Math.max(0, room.occupied - 1);
+    }
+
+    if (room.category === "Rented-Room") {
+      room.occupiedRentalRoom = Math.max(0, room.occupiedRentalRoom - 1);
+    }
+
+    if (room.category === "Hotel") {
+      room.occupiedhotelroom = Math.max(0, room.occupiedhotelroom - 1);
+    }
+
+    // Increase vacant count
+    room.vacant = Math.min(capacity, room.vacant + 1);
+
+    // Update availability
+    room.availabilityStatus =
+      room.occupied < capacity ? "Available" : "Occupied";
+
+    // Remove room from occupied list if empty
+    if (room.occupied === 0) {
+      branch.occupiedRoom = branch.occupiedRoom.filter(
+        rn => Number(rn) !== Number(room.roomNumber)
+      );
+    }
+
+    await tenant.save();
+    await branch.save();
+
+    /* ---------------- REDIS CLEAR ---------------- */
+    if (redisClient) {
+      await redisClient.del("all-pg");
+      const keys = await redisClient.keys("tenant-*");
+      if (keys.length) await redisClient.del(keys);
+      const branchKeys = await redisClient.keys("branches-*");
+      if (branchKeys.length) await redisClient.del(branchKeys);
+      const roomKeys = await redisClient.keys("room-*");
+      if (roomKeys.length) await redisClient.del(roomKeys);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Tenant checked out successfully",
+      tenant
+    });
+
+  } catch (error) {
+    console.error("MarkTenantInactive Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message
+    });
+  }
+};
 
 
 
@@ -614,43 +725,43 @@ exports.getAlltenantbyStatus = async (req, res) => {
       });
     }
 
-    // ✅ Cache key (status-specific)
-    const cacheKey = `tenant-${managerEmail}-${status}`;
+    // // ✅ Cache key
+    // const cacheKey = `tenant-${managerEmail}-${status}`;
 
-    // ✅ Check Redis cache
-    const cachedData = await redisClient.get(cacheKey);
-    if (cachedData) {
-      return res.status(200).json({
-        success: true,
-        message: "Tenants fetched from cache",
-        tenants: JSON.parse(cachedData),
-      });
-    }
+    // // ✅ Redis cache
+    // const cachedData = await redisClient.get(cacheKey);
+    // if (cachedData) {
+    //   return res.status(200).json({
+    //     success: true,
+    //     message: "Tenants fetched from cache",
+    //     tenants: JSON.parse(cachedData),
+    //   });
+    // }
 
-    // ✅ Fetch all branches managed by this manager
-    const branches = await branchmanager.find(
-      { email: req.user.email },
-      { _id: 1 }
-    );
-  const branch=await PropertyBranch.findOne({branchmanager:branches[0]._id})
-    if (!branch) {
+    // ✅ Get all branches of owner/manager
+    const branches = await PropertyBranch.find({ owner: req.user._id }).select("_id");
+
+    if (!branches || branches.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No branches found for this manager",
+        message: "No branches found",
       });
     }
 
-    // ✅ Fetch tenants by status
+    // ✅ Extract branch IDs
+    const branchIds = branches.map((b) => b._id);
+
+    // ✅ Build query
     const query =
       status === "all"
-        ? { branch: branch._id } 
-        : { branch: branch._id , status };
+        ? { branch: { $in: branchIds } }
+        : { branch: { $in: branchIds }, status };
 
-    const tenants = await Tenant.find(query)
-      .sort({ createdAt: -1 });
+    // ✅ Fetch tenants
+    const tenants = await Tenant.find(query).sort({ createdAt: -1 });
 
     // ✅ Cache for 1 hour
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(tenants));
+    // await redisClient.setEx(cacheKey, 3600, JSON.stringify(tenants));
 
     return res.status(200).json({
       success: true,
@@ -658,7 +769,6 @@ exports.getAlltenantbyStatus = async (req, res) => {
       count: tenants.length,
       tenants,
     });
-
   } catch (error) {
     console.error("getAlltenantbyStatus Error:", error);
     return res.status(500).json({
@@ -669,47 +779,6 @@ exports.getAlltenantbyStatus = async (req, res) => {
   }
 };
 
-// ---------------------------
-// Get All Active Tenants for a Branch
-// ---------------------------
-// exports.getAllActiveTenant = async (req, res) => {
-//     try {
-//         const { id: branchId } = req.params;
-//         if (!branchId) {
-//             return res.status(400).json({ success: false, message: "Branch ID required" });
-//         }
-
-//         const cachedKey = `tenant-${branchId}-active`;
-//         const cachedData = await redisClient.get(cachedKey);
-//         if (cachedData) {
-//             return res.status(200).json({
-//                 success: true,
-//                 message: "Active tenants from cache",
-//                 tenants: JSON.parse(cachedData),
-//             });
-//         }
-
-//         const tenants = await Tenant.find({ branch: branchId, status: { $ne: "In-Active" } });
-//         await redisClient.setEx(cachedKey, 3600, JSON.stringify(tenants));
-
-//         return res.status(200).json({
-//             success: true,
-//             message: "Active tenants fetched successfully",
-//             tenants,
-//         });
-//     } catch (error) {
-//         console.error("getAllActiveTenant Error:", error);
-//         return res.status(500).json({
-//             success: false,
-//             message: "Server Error",
-//             error: error.message,
-//         });
-//     }
-// };
-
-// ---------------------------
-// Get Tenants by Status for a Branch
-// ---------------------------
 exports.getAllStatusTenantByBranch = async (req, res) => {
     try {
         const { branchId } = req.params;
@@ -748,5 +817,38 @@ exports.getAllStatusTenantByBranch = async (req, res) => {
     }
 };
 
+
+
+exports.getAllActiveTenant = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Branch ID is required",
+      });
+    }
+
+    const allTenant = await Tenant.find({
+      branch: id,
+      status: "Active", // ✅ only active tenants
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "All active tenants found",
+      findAllTenant: allTenant,
+    });
+
+  } catch (error) {
+    console.error("getAllActiveTenant Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 
 

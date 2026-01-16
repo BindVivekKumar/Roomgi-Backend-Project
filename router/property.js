@@ -9,7 +9,7 @@ const {
     GetAllBranchOwner, AddBranch, EditBranch, getAllPg,
     deleteimage, addRoomImages,appoingtexistingBranchManager,
     AppliedFilters, AppliedAllFilters, DeleteRoom,
-    UpdateRoom, AllRooms, getAllBranchManager, changebranchpassword,
+    UpdateRoom, AllRooms, getAllBranchManager,
     DeleteBranch, DeleteProperty, GetAllBranch,
     AddRoom, getdetails,Removebranchmanager,
     getalllistedandunlisted, listPgRoom,ownerAllroom,
@@ -30,10 +30,10 @@ router.put(
     addRoomImages
 );
 
-router.put("/branchmanager/passwordchange", Validate, changebranchpassword)
-router.get("/getalllbranchowner", Validate, GetAllBranchOwner)
-router.get("/allrooms", Validate, AllRooms)
-router.get("/allroomsaccordingtoowner", Validate, ownerAllroom)
+// router.put("/branchmanager/passwordchange", Validate, changebranchpassword)
+ router.get("/getalllbranchowner", Validate, GetAllBranchOwner)
+// router.get("/allrooms", Validate, AllRooms)
+ router.get("/allroomsaccordingtoowner", Validate, ownerAllroom)
 router.delete("/deleteroom/:id", Validate, DeleteRoom)
 router.put("/updateroom/:Id", Validate, UpdateRoom)
 router.post("/appliedallfilter", AppliedAllFilters)

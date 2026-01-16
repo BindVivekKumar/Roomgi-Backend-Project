@@ -3,6 +3,7 @@
 
 
 
+const mongoose = require("mongoose");
 
 
 const Tenant = require("../model/branchmanager/tenants");
@@ -38,30 +39,30 @@ async function invalidateCaches({ managerId, tenantId, branchId }) {
 exports.getAllComplaintsForManager = async (req, res) => {
   const API_VERSION = "v1";
   try {
-    console.log(`🚀 [${API_VERSION}] getAllComplaintsForManager HIT`);
+    console.log(` [${API_VERSION}] getAllComplaintsForManager HIT`);
 
     const managerId = req.user._id;
     const cacheKey = `branchManagerComplaints:${managerId}:v1`;
 
     // ---------------- REDIS CACHE ----------------
-    if (redisClient) {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        console.log("⚡ CACHE HIT");
-        const parsedCache = JSON.parse(cached);
-        const stats = {
-          pending: parsedCache.filter(c => c.status === "Pending").length,
-          InProgress: parsedCache.filter(c => c.status === "In-Progress").length,
-          Resolved: parsedCache.filter(c => c.status === "Resolved").length,
-        };
-        return res.json({ success: true, data: parsedCache, stats, source: "cache", apiVersion: API_VERSION });
-      }
-      console.log("❌ CACHE MISS");
-    }
+    // if (redisClient) {
+    //   const cached = await redisClient.get(cacheKey);
+    //   if (cached) {
+    //     console.log("⚡ CACHE HIT");
+    //     const parsedCache = JSON.parse(cached);
+    //     const stats = {
+    //       pending: parsedCache.filter(c => c.status === "Pending").length,
+    //       InProgress: parsedCache.filter(c => c.status === "In-Progress").length,
+    //       Resolved: parsedCache.filter(c => c.status === "Resolved").length,
+    //     };
+    //     return res.json({ success: true, data: parsedCache, stats, source: "cache", apiVersion: API_VERSION });
+    //   }
+    //   console.log("❌ CACHE MISS");
+    // }
 
     // ---------------- FETCH BRANCHES ----------------
     const branches = await PropertyBranch
-      .find({ branchmanager: managerId })
+      .find({ owner: managerId })
       .select("_id");
 
     const branchIds = branches.map(b => b._id);
@@ -75,7 +76,7 @@ exports.getAllComplaintsForManager = async (req, res) => {
       .populate("branchId", "name city")
       .sort({ createdAt: -1 });
 
-    console.log("📊 Complaints fetched count:", complaints.length);
+    console.log("📊 Complaints fetched count:", complaints);
 
     // ---------------- STATS ----------------
     const stats = {
@@ -92,7 +93,7 @@ exports.getAllComplaintsForManager = async (req, res) => {
     }
 
     // ---------------- RESPONSE ----------------
-    res.json({
+    return res.status(200).json({
       success: true,
       data: complaints,
       stats,
@@ -138,54 +139,100 @@ exports.getTenantComplaints = async (req, res) => {
 /* ======================================================
    📌 GET COMPLAINTS BY STATUS (VERSIONED)
 ====================================================== */
+
+
 exports.getComplaintsByStatus = async (req, res) => {
   try {
     console.log("🚀 getComplaintsByStatus HIT");
 
+    /* ---------------- AUTH CHECK ---------------- */
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    }
+
     const managerId = req.user._id;
     const { status } = req.params;
 
+    /* ---------------- NORMALIZE STATUS ---------------- */
+    const normalizedStatus =
+      status === "all"
+        ? "all"
+        : status.charAt(0).toUpperCase() + status.slice(1);
+
+    /* ---------------- REDIS VERSIONING ---------------- */
     const versionKey = `complaint-status-version:${managerId}`;
     const version = redisClient
-      ? (await redisClient.get(versionKey)) || 1
+      ? Number((await redisClient.get(versionKey)) || 1)
       : 1;
 
-    const cacheKey = `complaints-status:v${version}:${managerId}:${status}`;
+    const cacheKey = `complaints-status:v${version}:${managerId}:${normalizedStatus}`;
     console.log("🔑 CACHE KEY:", cacheKey);
 
+    /* ---------------- CACHE CHECK ---------------- */
     if (redisClient) {
       const cached = await redisClient.get(cacheKey);
       if (cached) {
         console.log("⚡ CACHE HIT");
-        return res.json({ success: true, data: JSON.parse(cached), source: "cache" });
+        return res.status(200).json({
+          success: true,
+          data: JSON.parse(cached),
+          source: "cache",
+        });
       }
     }
 
-    const branches = await PropertyBranch
-      .find({ branchmanager: managerId })
-      .select("_id");
+    /* ---------------- GET MANAGER BRANCHES ---------------- */
+    const branches = await PropertyBranch.find({ owner: managerId }).select("_id");
 
-    const branchIds = branches.map(b => b._id);
+    if (!branches.length) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "No branches found for this manager",
+      });
+    }
 
+    const branchIds = branches.map(
+      (b) => new mongoose.Types.ObjectId(b._id)
+    );
+
+    /* ---------------- BUILD QUERY ---------------- */
     const query = {
       branchId: { $in: branchIds },
-      ...(status !== "all" && { status }),
+      ...(normalizedStatus !== "all" && { status: normalizedStatus }),
     };
 
+    console.log("📌 FINAL QUERY:", query);
+
+    /* ---------------- FETCH COMPLAINTS ---------------- */
     const complaints = await Complaint.find(query)
       .populate("tenantId", "username email")
       .populate("branchId", "name city address")
       .sort({ createdAt: -1 });
 
+    /* ---------------- CACHE SET ---------------- */
     if (redisClient) {
       await redisClient.setEx(cacheKey, 300, JSON.stringify(complaints));
       console.log("📦 CACHE SET");
     }
 
-    res.json({ success: true, data: complaints, source: "db" });
-  } catch (err) {
-    console.error("❌ getComplaintsByStatus ERROR:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    /* ---------------- RESPONSE ---------------- */
+    return res.status(200).json({
+      success: true,
+      data: complaints,
+      source: "db",
+    });
+
+  } catch (error) {
+    console.error("❌ getComplaintsByStatus ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -285,19 +332,20 @@ exports.getAllComplaintsOfBranch = async (req, res) => {
     const { branchId } = req.params;
     const cacheKey = `branchComplaints-${branchId}`;
 
-    if (redisClient) {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        return res.status(200).json({
-          success: true,
-          count: JSON.parse(cached).length,
-          data: JSON.parse(cached),
-          source: "cache",
-        });
-      }
-    }
+    // if (redisClient) {
+    //   const cached = await redisClient.get(cacheKey);
+    //   if (cached) {
+    //     return res.status(200).json({
+    //       success: true,
+    //       count: JSON.parse(cached).length,
+    //       data: JSON.parse(cached),
+    //       source: "cache",
+    //     });
+    //   }
+    // }
 
     const complaints = await Complaint.find({ branchId }).populate("tenantId");
+    console.log(complaints)
     if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(complaints));
 
     res.status(200).json({
@@ -346,53 +394,53 @@ exports.getComplaintsByCategory = async (req, res) => {
 
 
 // -------------------- CREATE COMPLAINT --------------------
-exports.createComplaint = async (req, res) => {
-  try {
-    const tenantId = req.user._id;
-    const { title, description, category, branchId } = req.body;
+// exports.createComplaint = async (req, res) => {
+//   try {
+//     const tenantId = req.user._id;
+//     const { title, description, category, branchId } = req.body;
 
-    if (!title || !description || !category || !branchId) return res.status(400).json({ success: false, message: "All fields required" });
+//     if (!title || !description || !category || !branchId) return res.status(400).json({ success: false, message: "All fields required" });
 
-    const branch = await PropertyBranch.findById(branchId);
-    if (!branch) return res.status(404).json({ success: false, message: "Branch not found" });
+//     const branch = await PropertyBranch.findById(branchId);
+//     if (!branch) return res.status(404).json({ success: false, message: "Branch not found" });
 
-    const complaint = await Complaint.create({ title, description, category, branchId, tenantId });
+//     const complaint = await Complaint.create({ title, description, category, branchId, tenantId });
 
-    await invalidateCaches({
-      complaint,
-      managerId: branch.branchmanager,
-      tenantId,
-      branchId
-    });
+//     await invalidateCaches({
+//       complaint,
+//       managerId: branch.branchmanager,
+//       tenantId,
+//       branchId
+//     });
 
-    res.status(201).json({ success: true, data: complaint });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
+//     res.status(201).json({ success: true, data: complaint });
+//   } catch (err) {
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// };
 
-exports.deleteComplaint = async (req, res) => {
-  try {
-    const { complaintId } = req.params;
-    const complaint = await Complaint.findById(complaintId);
+// exports.deleteComplaint = async (req, res) => {
+//   try {
+//     const { complaintId } = req.params;
+//     const complaint = await Complaint.findById(complaintId);
 
-    if (!complaint) {
-      return res.status(404).json({ success: false, message: "Complaint not found" });
-    }
+//     if (!complaint) {
+//       return res.status(404).json({ success: false, message: "Complaint not found" });
+//     }
 
-    await complaint.deleteOne();
+//     await complaint.deleteOne();
 
-    // Redis cache invalidate
-    if (redisClient) {
-      await Promise.all([
-        redisClient.del(`tenantComplaints:${complaint.tenantId}`),
-        redisClient.del(`branchComplaints:${complaint.branchId}`),
-      ]);
-    }
+//     // Redis cache invalidate
+//     if (redisClient) {
+//       await Promise.all([
+//         redisClient.del(`tenantComplaints:${complaint.tenantId}`),
+//         redisClient.del(`branchComplaints:${complaint.branchId}`),
+//       ]);
+//     }
 
-    res.json({ success: true, message: "Complaint deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
+//     res.json({ success: true, message: "Complaint deleted successfully" });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, message: "Server error" });
+//   }
+// };
