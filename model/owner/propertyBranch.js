@@ -102,6 +102,8 @@ const RoomSchema = new mongoose.Schema({
         {
             type: String,
             enum: [
+                "Timings",
+                "No noise",
                 "Keep room clean",
                 "No loud music",
                 "Maintain hygiene",

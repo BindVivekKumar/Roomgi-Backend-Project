@@ -9,7 +9,7 @@ const {
     GetAllBranchOwner, AddBranch, EditBranch, getAllPg,
     deleteimage, addRoomImages,appoingtexistingBranchManager,
     AppliedFilters, AppliedAllFilters, DeleteRoom,
-    UpdateRoom, AllRooms, getAllBranchManager,
+    UpdateRoom, getAllBranchManager,getAllRoomOfBranch,
     DeleteBranch, DeleteProperty, GetAllBranch,
     AddRoom, getdetails,Removebranchmanager,
     getalllistedandunlisted, listPgRoom,ownerAllroom,
@@ -29,10 +29,11 @@ router.put(
     upload.array("roomImages", 10),
     addRoomImages
 );
+router.get("/branch-rooms/:id", getAllRoomOfBranch);
 
 // router.put("/branchmanager/passwordchange", Validate, changebranchpassword)
  router.get("/getalllbranchowner", Validate, GetAllBranchOwner)
-// router.get("/allrooms", Validate, AllRooms)
+
  router.get("/allroomsaccordingtoowner", Validate, ownerAllroom)
 router.delete("/deleteroom/:id", Validate, DeleteRoom)
 router.put("/updateroom/:Id", Validate, UpdateRoom)

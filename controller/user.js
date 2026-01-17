@@ -200,11 +200,11 @@ const getWishlist = async (req, res) => {
 
 const Logincontroller = async (req, res) => {
     console.log("req.body", req.body)
-    const { email, password, role } = req.body;
+    const { email, password } = req.body;
 
     try {
 
-        if (!email || !password || !role) {
+        if (!email || !password) {
             return res.status(400).json({
                 success: false,
                 message: "please filled all the data carefully"
@@ -242,12 +242,7 @@ const Logincontroller = async (req, res) => {
             })
         }
 
-        if (!existingUser.role.includes(role)) {
-            return res.status(400).json({
-                success: false,
-                message: "Your role is Not valid",
-            })
-        }
+       
 
 
         const payload = {

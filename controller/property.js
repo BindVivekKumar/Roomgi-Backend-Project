@@ -8,6 +8,11 @@ const Uploadmedia = require("../utils/cloudinary.js")
 const deletemedia = require("../utils/cloudinary.js")
 const axios = require('axios')
 
+const { generateRoomDescription } = require("../prompts/aiDescription");
+
+
+const mongoose = require('mongoose');
+
 const Booking = require("../model/user/booking.js");
 const propertyBranch = require("../model/owner/propertyBranch.js");
 
@@ -199,6 +204,68 @@ exports.AddBranch = async (req, res) => {
     return res.status(200).json({ success: true, message: "Branch created successfully", createdBranch });
   } catch (error) {
     return handleError(res, error, "Failed to add branch");
+  }
+};
+
+exports.getAllRoomOfBranch = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cursor, limit = 10 } = req.query;
+
+    // Validate Branch ID
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Branch ID"
+      });
+    }
+
+    const branch = await propertyBranch.findById(id).lean();
+
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found"
+      });
+    }
+
+    const rooms = branch.rooms || [];
+    let startIndex = 0;
+
+    // Cursor logic (skip for first page)
+    if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
+      const index = rooms.findIndex(
+        r => r._id.toString() === cursor
+      );
+      if (index !== -1) startIndex = index + 1;
+    }
+
+    const paginatedRooms = rooms.slice(
+      startIndex,
+      startIndex + Number(limit)
+    );
+
+    const hasMore = startIndex + Number(limit) < rooms.length;
+    const nextCursor = hasMore && paginatedRooms.length
+      ? paginatedRooms[paginatedRooms.length - 1]._id
+      : null;
+
+    return res.status(200).json({
+      success: true,
+      metadata: {
+        totalRooms: rooms.length,
+        count: paginatedRooms.length,
+        nextCursor
+      },
+      rooms: paginatedRooms
+    });
+
+  } catch (error) {
+    console.error("getAllRoomOfBranch:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
   }
 };
 
@@ -673,23 +740,17 @@ exports.DeleteProperty = async (req, res) => {
 
 
 
-
 exports.AddRoom = async (req, res) => {
   try {
-    
-    // Parse services from frontend
     let service;
     if (typeof req.body.services === "string") {
       service = JSON.parse(req.body.services);
     } else {
-      service = req.body.services; // already an object
+      service = req.body.services;
     }
-
-
 
     const userId = req.user._id;
     const imageFiles = req.files?.images || [];
-    console.log(req.body)
 
     const {
       roomNumber,
@@ -721,18 +782,7 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    // // 🔥 1️⃣ Find manager (NO POPULATE)
-    // const manager = await branchmanager.findOne({ email: req.user.email });
-
-    // if (!manager || !manager.propertyId) {
-    //   return res.status(404).json({
-    //     success: false,
-    //     message: "No branch assigned to this manager",
-    //   });
-    // }
-
-    // 🔥 2️⃣ REAL branch document
-    const branch = await PropertyBranch.findOne({owner:req.user.id});
+    const branch = await PropertyBranch.findOne({ owner: req.user.id });
     if (!branch) {
       return res.status(404).json({
         success: false,
@@ -740,7 +790,6 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    // 🔥 3️⃣ Duplicate room check (BRANCH LEVEL)
     const exists = branch.rooms.some(
       r => Number(r.roomNumber) === Number(roomNumber)
     );
@@ -748,23 +797,20 @@ exports.AddRoom = async (req, res) => {
     if (exists) {
       return res.status(409).json({
         success: false,
-        message: "Room number already exists in this branch",
+        message: "Room number already exists",
       });
     }
 
-    // ☁️ Upload images
     const uploadedImages = [];
     for (const file of imageFiles) {
       const upload = await Uploadmedia.Uploadmedia(file.path);
       uploadedImages.push(upload.secure_url);
     }
 
-    // 🧠 Capacity
     let capacity = 1;
     if (type === "Double") capacity = 2;
     if (type === "Triple") capacity = 3;
 
-    // 🏗️ Create room
     const newRoom = {
       roomNumber: Number(roomNumber),
       category,
@@ -790,19 +836,21 @@ exports.AddRoom = async (req, res) => {
       notAllowed: Array.isArray(notAllowed) ? notAllowed : notAllowed ? [notAllowed] : [],
       rules: Array.isArray(rules) ? rules : rules ? [rules] : [],
 
-      description: description || "",
       availabilityStatus: availabilityStatus || "Available",
 
       vacant: capacity,
       capacity,
-      advancedmonth:advancedmonth,
+      advancedmonth,
 
       createdBy: userId,
       branch: branch._id,
       roomImages: uploadedImages,
     };
 
-    // 🔥 4️⃣ PUSH ONLY IN THIS BRANCH
+    // 🔥 AI DESCRIPTION
+    const aiDescription = await generateRoomDescription({ newRoom, branch });
+    newRoom.description = aiDescription || description || "";
+
     branch.rooms.push(newRoom);
     await branch.save();
 
@@ -817,42 +865,10 @@ exports.AddRoom = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message,
     });
   }
 };
 
-
-// exports.AllRooms = async (req, res) => {
-//   try {
-   
-//     // 🔥 Find manager
-//     const manager = await branchmanager.findOne({ email: req.user.email });
-//     if (!manager || !manager.propertyId) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "No branch assigned",
-//       });
-//     }
-
-//     // 🔥 REAL branch
-//     const branch = await PropertyBranch.findById(manager.propertyId);
-
-//     return res.status(200).json({
-//       success: true,
-//       totalRooms: branch.rooms.length,
-//       rooms: branch.rooms,
-//     });
-
-//   } catch (error) {
-//     console.error("AllRooms Error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
 
 exports.ownerAllroom = async (req, res) => {
   try {
