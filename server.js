@@ -58,8 +58,8 @@ app.get("/health", (req, res) => {
 app.use("/api/v1/user", require("./router/user"));
 app.use("/api/property", require("./router/property"));
 app.use("/api/tenant", require("./router/tenenant"));
-app.use("/api", require("./router/complain"));
-app.use("/api", require("./router/analysis"));
+app.use("/api/complain", require("./router/complain"));
+
 
 app.use("/api/payment", require("./router/payment")); 
 app.use("/api/review", require("./router/review"));

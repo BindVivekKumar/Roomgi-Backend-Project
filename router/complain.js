@@ -1,18 +1,32 @@
 const express = require("express");
 const router = express.Router();
 const { Validate } = require("../middleware/uservalidate");
-
 const complaintController = require("../controller/complaints");
-console.log("fhgvbdjz")
-router.get("/complain/",Validate, complaintController.getAllComplaintsForManager);
-router.post("/complain/create",Validate, complaintController.createComplaint);
-router.get("/complain/branch/:branchId",Validate, complaintController.getAllComplaintsOfBranch);
-router.patch("/complain/status/:complaintId",Validate, complaintController.changeStatusOfComplaint);
-// router.put("/complain/assign", complaintController.assignComplaint);
-router.get("/complain/tenant",Validate, complaintController.getTenantComplaints);
-router.get("/complain/status/:status",Validate, complaintController.getComplaintsByStatus);
-router.get("/complain/category/:category",Validate, complaintController.getComplaintsByCategory);
 
-router.delete("/complain/:complaintId",Validate, complaintController.deleteComplaint);
+// Debugging
+console.log("🚀 Complaint Routes Initialized");
+
+/* NOTE: Agar aapne server.js mein app.use("/api/complain", router) likha hai, 
+   toh yahan routes '/' se shuru honge.
+*/
+
+// 1. Get All (Manager/Admin) - Stats + Initial Page
+router.get("/", Validate, complaintController.getAllComplaintsForManager);
+
+// 2. Create Complaint
+router.post("/create", Validate, complaintController.createComplaint);
+
+// 3. Specific Filters (Dynamic Params)
+// Inhe ID waale route se hamesha upar rakhein
+router.get("/tenant", Validate, complaintController.getTenantComplaints);
+router.get("/branch/:branchId", Validate, complaintController.getAllComplaintsOfBranch);
+router.get("/status/:status", Validate, complaintController.getComplaintsByStatus);
+router.get("/category/:category", Validate, complaintController.getComplaintsByCategory);
+
+// 4. Update Status
+router.patch("/status/:complaintId", Validate, complaintController.changeStatusOfComplaint);
+
+// 5. Generic ID Routes (Delete/GetOne) - Inhe hamesha niche rakhein
+router.delete("/:complaintId", Validate, complaintController.deleteComplaint);
 
 module.exports = router;

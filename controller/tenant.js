@@ -461,8 +461,6 @@ exports.GetTenantsByBranchId = async (req, res) => {
 };
 
 
-///////////////////////////////////////////////////////
-
 
 
 

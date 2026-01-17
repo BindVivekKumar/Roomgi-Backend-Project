@@ -70,6 +70,89 @@ exports.getAllbranchPayments = async (req, res) => {
         });
     }
 };
+exports.createPayment = async (req, res) => {
+  try {
+    const { tenantId, branch, amountpaid } = req.body;
+
+    if (!tenantId || !branch || !amountpaid) {
+      return res.status(400).json({
+        success: false,
+        message: "tenantId, branch and amountpaid are required"
+      });
+    }
+
+    const amount = Number(amountpaid);
+
+    if (amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount paid must be greater than 0"
+      });
+    }
+
+    const foundTenant = await Tenant.findById(tenantId);
+    if (!foundTenant) {
+      return res.status(404).json({
+        success: false,
+        message: "Tenant not found"
+      });
+    }
+
+    let remainingAmount = amount;
+
+    // CASE 1: No dues
+    if (foundTenant.duesamount === 0) {
+      foundTenant.advanced += remainingAmount;
+    }
+
+    // CASE 2: Dues > payment
+    else if (foundTenant.duesamount > remainingAmount) {
+      foundTenant.duesamount -= remainingAmount;
+    }
+
+    // CASE 3: Payment > dues
+    else {
+      remainingAmount -= foundTenant.duesamount;
+      foundTenant.duesamount = 0;
+      foundTenant.advanced += remainingAmount;
+    }
+
+    const payment = await Payment.create({
+      tenantId,
+      branch,
+      email: foundTenant.email,
+      amountpaid: amount,
+      totalAmount: amount,
+      paymentStatus: "success",
+      status: "paid",
+      roomNumber: foundTenant.roomNumber,
+    });
+
+    await foundTenant.save();
+
+    return res.status(201).json({
+      success: true,
+      message: "Payment added successfully",
+      payment
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
+
+
+
+
+
+
+
+
 
 
 
@@ -297,111 +380,6 @@ exports.verifying = async (req, res) => {
         console.log("🛑 Session ended");
     }
 };
-
-
-
-// exports.verifyingRentPayment = async (req, res) => {
-//     console.log("💡 Payment verification initiated");
-
-//     const session = await mongoose.startSession();
-//     let committed = false;
-
-//     try {
-//         session.startTransaction();
-
-//         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, tenantId, amount, response, walletUsed } = req.body;
-
-
-//         // ---------- BASIC VALIDATION ----------
-//         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-//             console.log("❌ Incomplete payment details");
-//             return res.status(400).json({ success: false, message: "Incomplete payment details" });
-//         }
-
-//         // ---------- SIGNATURE VERIFICATION ----------
-//         const generatedSignature = crypto
-//             .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-//             .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-//             .digest("hex");
-
-
-//         if (generatedSignature !== razorpay_signature) {
-//             console.log("❌ Invalid payment signature");
-//             return res.status(400).json({ success: false, message: "Invalid payment signature" });
-//         }
-
-//         const foundtenant = await Tenant.findById(tenantId);
-
-//         if (!foundtenant) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "ot Able to Find Te TEannat "
-//             })
-//         }
-
-
-//         const paidAmount = Number(amount);
-//         const walletAmount = Number(walletUsed || 0);
-
-//         if (isNaN(paidAmount) || isNaN(walletAmount)) {
-//             throw new Error("Invalid payment amount");
-//         }
-
-
-
-
-//         const payment = await Payment.create({
-//             tenantId: foundtenant._id,
-//             amountpaid: amount,
-//             walletused: walletUsed || 0,
-//             totalAmount: walletAmount + paidAmount,
-//             paymentStatus: "processing",
-//             email: req.user.email,
-//             mode: "online",
-
-//         })
-
-
-
-
-//         // ---------- REDIS INVALIDATION ----------
-//         console.log("♻️ Invalidating Redis cache...");
-//         await Promise.allSettled([
-//             redisClient.del("all-pg"),
-//             redisClient.del(`tenant-branch-${branch._id}`),
-//             redisClient.del(`room-${branch._id}-${roomId}`),
-//         ]);
-//         console.log("✅ Redis cache cleared");
-
-//         // ---------- PUSH TO WORKER ----------
-//         console.log("📤 Adding job to paymentQueue...");
-//         await paymentRentQueue.add("adjust-rent", {
-//             tenantId,
-//             paymentId: payment._id,
-//             amount
-//         });
-//         console.log("✅ Job added to paymentQueue");
-
-//         // ---------- COMMIT TRANSACTION ----------
-//         await session.commitTransaction();
-//         committed = true;
-//         console.log("✅ Transaction committed");
-
-//         return res.status(200).json({ success: true, message: "Payment verified successfully", booking: booking[0] });
-
-//     } catch (error) {
-//         if (!committed) {
-//             await session.abortTransaction();
-//             console.log("⚠️ Transaction aborted due to error");
-//         }
-//         console.error("❌ Payment verification error:", error);
-//         return res.status(500).json({ success: false, message: error.message || "Internal server error" });
-//     } finally {
-//         session.endSession();
-//         console.log("🛑 Session ended");
-//     }
-// };
-
 
 
 
@@ -681,7 +659,7 @@ exports.RevenueDetails = async (req, res) => {
         let notPaid = [];
 
         // Fetch all branches for this branch manager
-        const branches = await PropertyBranch.find({ branchmanager: userId });
+        const branches = await PropertyBranch.find({ owner: userId });
 
         if (!branches.length) {
             return res.status(400).json({
@@ -764,6 +742,9 @@ exports.RevenueDetails = async (req, res) => {
         }
 
         const totalRevenue = totalIncome - totalExpense;
+
+
+        
 
         return res.status(200).json({
             success: true,
