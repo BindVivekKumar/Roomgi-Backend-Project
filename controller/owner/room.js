@@ -72,7 +72,7 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    const branch = await PropertyBranch.findOne({ owner: req.user.id });
+    const branch = await propertyBranch.findOne({ owner: req.user.id });
     if (!branch) {
       return res.status(404).json({
         success: false,
@@ -403,25 +403,7 @@ exports.addRoomImages = async (req, res) => {
   }
 };
 
-exports.getdetails = async (req, res) => {
-  try {
-    const { id } = req.params;
 
-    const foundBranch = await PropertyBranch.findOne({ "rooms._id": id }).lean();
-    if (!foundBranch) return res.status(404).json({ success: false, message: "Branch containing the room not found" });
-
-    const room = foundBranch.rooms.find(r => r._id.toString() === id);
-    if (!room) return res.status(404).json({ success: false, message: "Room not found" });
-
-    const cacheKey = `room-${foundBranch._id}-getdetails`;
-    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room,foundBranch.address));
-
-    return res.status(200).json({ success: true, message: "Room details fetched successfully", room,roomz:foundBranch.address });
-  } catch (error) {
-    console.error("getdetails Error:", error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
-  }
-};
 
 
 exports.deleteimage = async (req, res) => {

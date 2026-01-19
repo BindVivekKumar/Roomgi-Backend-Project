@@ -7,10 +7,10 @@ const upload = multer({ storage: multer.diskStorage({}) });
 
 const {
   getAllPg,
-  
+  getdetails
 } = require("../../controller/user/property");
 
-
+router.get("/get/:id", getdetails)
 
 router.get("/allpg", getAllPg)
 

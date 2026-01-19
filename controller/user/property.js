@@ -20,8 +20,14 @@ const propertyBranch = require("../../model/owner/propertyBranch.js");
 // Get all published & verified PG rooms (with caching)
 exports.getAllPg = async (req, res) => {
   try {
-    const cacheKey = "all-pg";
-    console.log("HIII");
+    let { cursor, limit = 12 } = req.query;
+    limit = Number(limit);
+
+    // Ignore "null" string from frontend
+    if (cursor === "null") cursor = null;
+
+    // 🔑 unique cache key per cursor
+    const cacheKey = `all-pg:${cursor || "first"}:${limit}`;
 
     /* ---------------- REDIS CACHE ---------------- */
     if (redisClient) {
@@ -30,22 +36,30 @@ exports.getAllPg = async (req, res) => {
         return res.status(200).json({
           success: true,
           message: "PGs from cache",
-          allrooms: JSON.parse(cached),
+          ...JSON.parse(cached),
         });
       }
     }
 
-    /* ---------------- DB QUERY (AGGREGATION) ---------------- */
-    const allrooms = await PropertyBranch.aggregate([
+    /* ---------------- AGGREGATION PIPELINE ---------------- */
+    const pipeline = [
       { $unwind: "$rooms" },
-
       {
         $match: {
           "rooms.toPublish.status": true,
           "rooms.verified": true,
         },
       },
-
+      // 🔹 CURSOR CONDITION
+      ...(cursor
+        ? [
+            {
+              $match: {
+                "rooms._id": { $lt: new mongoose.Types.ObjectId(cursor) },
+              },
+            },
+          ]
+        : []),
       {
         $lookup: {
           from: "propertybranches",
@@ -55,7 +69,6 @@ exports.getAllPg = async (req, res) => {
         },
       },
       { $unwind: "$branchData" },
-
       {
         $project: {
           _id: "$rooms._id",
@@ -69,6 +82,7 @@ exports.getAllPg = async (req, res) => {
           furnishedType: "$rooms.furnishedType",
           roomImages: "$rooms.roomImages",
           personalreview: "$rooms.personalreview",
+          createdAt: "$rooms.createdAt",
           branch: {
             name: "$branchData.name",
             address: "$branchData.address",
@@ -76,32 +90,58 @@ exports.getAllPg = async (req, res) => {
           },
         },
       },
+      { $sort: { _id: -1 } },
+      { $limit: limit + 1 }, // fetch one extra for next cursor
+    ];
 
-      // ✅ LIMIT TO 20 ROOMS
-      { $limit: 20 },
-    ]);
+    const rooms = await PropertyBranch.aggregate(pipeline);
+
+    /* ---------------- NEXT CURSOR LOGIC ---------------- */
+    let nextCursor = null;
+    if (rooms.length > limit) {
+      nextCursor = rooms[limit - 1]._id;
+      rooms.pop();
+    }
+
+    const response = {
+      success: true,
+      message: "PGs fetched successfully",
+      data: rooms,
+      nextCursor,
+    };
 
     /* ---------------- SAVE TO CACHE ---------------- */
     if (redisClient) {
-      await redisClient.setEx(
-        cacheKey,
-        3600,
-        JSON.stringify(allrooms)
-      );
+      await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Got all PG successfully",
-      allrooms,
-    });
-
+    return res.status(200).json(response);
   } catch (error) {
     console.error("getAllPg Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
+  }
+};
+
+exports.getdetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const foundBranch = await PropertyBranch.findOne({ "rooms._id": id }).lean();
+    if (!foundBranch) return res.status(404).json({ success: false, message: "Branch containing the room not found" });
+
+    const room = foundBranch.rooms.find(r => r._id.toString() === id);
+    if (!room) return res.status(404).json({ success: false, message: "Room not found" });
+
+    const cacheKey = `room-${foundBranch._id}-getdetails`;
+    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room,foundBranch.address));
+
+    return res.status(200).json({ success: true, message: "Room details fetched successfully", room,roomz:foundBranch.address });
+  } catch (error) {
+    console.error("getdetails Error:", error);
+    return res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
 

@@ -25,6 +25,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-validator": "^7.3.1",
+    "fs": "^0.0.1-security",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.1",
@@ -32,9 +33,11 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.9",
     "nodemon": "^3.1.11",
+    "path": "^0.12.7",
     "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.6",
-    "redis": "^5.10.0"
+    "redis": "^5.10.0",
+    "sharp": "^0.34.5"
   }
 }

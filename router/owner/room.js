@@ -8,7 +8,7 @@ const upload = multer({ storage: multer.diskStorage({}) });
 const {
    
     AddRoom,ownerAllroom,DeleteRoom,getAllRoomOfBranch,UpdateRoom,addRoomImages
-    ,getdetails,deleteimage
+    ,deleteimage
 } = require("../../controller/owner/room");
 
 
@@ -32,6 +32,6 @@ router.post(
     AddRoom
 );
 
-router.get("/get/:id", getdetails)
+
 
 module.exports = router;
