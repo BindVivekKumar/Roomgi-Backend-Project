@@ -20,14 +20,8 @@ const propertyBranch = require("../../model/owner/propertyBranch.js");
 // Get all published & verified PG rooms (with caching)
 exports.getAllPg = async (req, res) => {
   try {
-    let { cursor, limit = 12 } = req.query;
-    limit = Number(limit);
-
-    // Ignore "null" string from frontend
-    if (cursor === "null") cursor = null;
-
-    // 🔑 unique cache key per cursor
-    const cacheKey = `all-pg:${cursor || "first"}:${limit}`;
+    const cacheKey = "all-pg";
+    console.log("HIII");
 
     /* ---------------- REDIS CACHE ---------------- */
     if (redisClient) {
@@ -36,30 +30,22 @@ exports.getAllPg = async (req, res) => {
         return res.status(200).json({
           success: true,
           message: "PGs from cache",
-          ...JSON.parse(cached),
+          allrooms: JSON.parse(cached),
         });
       }
     }
 
-    /* ---------------- AGGREGATION PIPELINE ---------------- */
-    const pipeline = [
+    /* ---------------- DB QUERY (AGGREGATION) ---------------- */
+    const allrooms = await PropertyBranch.aggregate([
       { $unwind: "$rooms" },
+
       {
         $match: {
           "rooms.toPublish.status": true,
           "rooms.verified": true,
         },
       },
-      // 🔹 CURSOR CONDITION
-      ...(cursor
-        ? [
-            {
-              $match: {
-                "rooms._id": { $lt: new mongoose.Types.ObjectId(cursor) },
-              },
-            },
-          ]
-        : []),
+
       {
         $lookup: {
           from: "propertybranches",
@@ -69,6 +55,7 @@ exports.getAllPg = async (req, res) => {
         },
       },
       { $unwind: "$branchData" },
+
       {
         $project: {
           _id: "$rooms._id",
@@ -82,7 +69,6 @@ exports.getAllPg = async (req, res) => {
           furnishedType: "$rooms.furnishedType",
           roomImages: "$rooms.roomImages",
           personalreview: "$rooms.personalreview",
-          createdAt: "$rooms.createdAt",
           branch: {
             name: "$branchData.name",
             address: "$branchData.address",
@@ -90,32 +76,26 @@ exports.getAllPg = async (req, res) => {
           },
         },
       },
-      { $sort: { _id: -1 } },
-      { $limit: limit + 1 }, // fetch one extra for next cursor
-    ];
 
-    const rooms = await PropertyBranch.aggregate(pipeline);
-
-    /* ---------------- NEXT CURSOR LOGIC ---------------- */
-    let nextCursor = null;
-    if (rooms.length > limit) {
-      nextCursor = rooms[limit - 1]._id;
-      rooms.pop();
-    }
-
-    const response = {
-      success: true,
-      message: "PGs fetched successfully",
-      data: rooms,
-      nextCursor,
-    };
+      // ✅ LIMIT TO 20 ROOMS
+      { $limit: 20 },
+    ]);
 
     /* ---------------- SAVE TO CACHE ---------------- */
     if (redisClient) {
-      await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+      await redisClient.setEx(
+        cacheKey,
+        3600,
+        JSON.stringify(allrooms)
+      );
     }
 
-    return res.status(200).json(response);
+    return res.status(200).json({
+      success: true,
+      message: "Got all PG successfully",
+      allrooms,
+    });
+
   } catch (error) {
     console.error("getAllPg Error:", error);
     return res.status(500).json({
@@ -124,6 +104,7 @@ exports.getAllPg = async (req, res) => {
     });
   }
 };
+
 
 exports.getdetails = async (req, res) => {
   try {
@@ -144,4 +125,3 @@ exports.getdetails = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
-
