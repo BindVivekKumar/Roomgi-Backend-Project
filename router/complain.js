@@ -3,12 +3,7 @@ const router = express.Router();
 const { Validate } = require("../middleware/uservalidate");
 const complaintController = require("../controller/complaints");
 
-// Debugging
-console.log("🚀 Complaint Routes Initialized");
 
-/* NOTE: Agar aapne server.js mein app.use("/api/complain", router) likha hai, 
-   toh yahan routes '/' se shuru honge.
-*/
 
 // 1. Get All (Manager/Admin) - Stats + Initial Page
 router.get("/", Validate, complaintController.getAllComplaintsForManager);

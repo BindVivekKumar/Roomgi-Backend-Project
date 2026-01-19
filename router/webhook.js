@@ -1,6 +1,6 @@
 const express = require("express");
 
-const { paymentWebhook } =require("../controller/webhook") 
+const { paymentWebhook } =require("../controller/webhooks/webhook") 
 
 const router = express.Router();
 

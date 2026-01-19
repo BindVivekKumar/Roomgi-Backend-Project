@@ -1,0 +1,107 @@
+const Property = require("../../model/branchmanager/property.js")
+const redisClient = require("../../utils/redis.js");
+const PropertyBranch = require("../../model/owner/propertyBranch.js")
+const Signup = require("../../model/user.js")
+const branchmanager = require("../../model/owner/branchmanager.js")
+const bcrypt = require("bcrypt")
+const Uploadmedia = require("../../utils/cloudinary.js")
+const deletemedia = require("../../utils/cloudinary.js")
+const axios = require('axios')
+
+const { generateRoomDescription } = require("../../prompts/aiDescription.js");
+
+
+const mongoose = require('mongoose');
+
+const Booking = require("../../model/user/booking.js");
+const propertyBranch = require("../../model/owner/propertyBranch.js");
+
+
+// Get all published & verified PG rooms (with caching)
+exports.getAllPg = async (req, res) => {
+  try {
+    const cacheKey = "all-pg";
+    console.log("HIII");
+
+    /* ---------------- REDIS CACHE ---------------- */
+    if (redisClient) {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        return res.status(200).json({
+          success: true,
+          message: "PGs from cache",
+          allrooms: JSON.parse(cached),
+        });
+      }
+    }
+
+    /* ---------------- DB QUERY (AGGREGATION) ---------------- */
+    const allrooms = await PropertyBranch.aggregate([
+      { $unwind: "$rooms" },
+
+      {
+        $match: {
+          "rooms.toPublish.status": true,
+          "rooms.verified": true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "propertybranches",
+          localField: "rooms.branch",
+          foreignField: "_id",
+          as: "branchData",
+        },
+      },
+      { $unwind: "$branchData" },
+
+      {
+        $project: {
+          _id: "$rooms._id",
+          category: "$rooms.category",
+          allowedFor: "$rooms.allowedFor",
+          verified: "$rooms.verified",
+          vacant: "$rooms.vacant",
+          price: "$rooms.price",
+          type: "$rooms.type",
+          flattype: "$rooms.flattype",
+          furnishedType: "$rooms.furnishedType",
+          roomImages: "$rooms.roomImages",
+          personalreview: "$rooms.personalreview",
+          branch: {
+            name: "$branchData.name",
+            address: "$branchData.address",
+            Propertyphoto: "$branchData.Propertyphoto",
+          },
+        },
+      },
+
+      // ✅ LIMIT TO 20 ROOMS
+      { $limit: 20 },
+    ]);
+
+    /* ---------------- SAVE TO CACHE ---------------- */
+    if (redisClient) {
+      await redisClient.setEx(
+        cacheKey,
+        3600,
+        JSON.stringify(allrooms)
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Got all PG successfully",
+      allrooms,
+    });
+
+  } catch (error) {
+    console.error("getAllPg Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+

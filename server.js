@@ -55,14 +55,52 @@ app.get("/health", (req, res) => {
 /* =======================
    ROUTERS
 ======================= */
+
+
+
+
+
+
+//owner
+
+
+app.use("/api/branch/owner", require("./router/owner/branch"));
+app.use("/api/room/owner", require("./router/owner/room"));
+app.use("/api/payment/owner", require("./router/owner/payment")); 
+ app.use("/api/complain/owner", require("./router/owner/complaints"));
+ app.use("/api/tenant/owner", require("./router/owner/tenant"));
+  app.use("/api/property", require("./router/owner/property"));
+
+//user
+
+app.use("/api/payment/user", require("./router/user/payment")); 
+app.use("/api/complain/user", require("./router/user/complaints"));
+app.use("/api/review/user", require("./router/user/review"));
+app.use("/api/filter/user", require("./router/user/filter"));
+app.use("/api/property/user", require("./router/user/property"));
+
+
+
+
+
+
+//admin
+app.use("/api/admin/certificate",require("./router/owner/certificate"))
+
+
+//common
 app.use("/api/v1/user", require("./router/user"));
-app.use("/api/property", require("./router/property"));
-app.use("/api/tenant", require("./router/tenenant"));
-app.use("/api/complain", require("./router/complain"));
 
 
-app.use("/api/payment", require("./router/payment")); 
-app.use("/api/review", require("./router/review"));
+
+
+app.use("/api/user/property", require("./router/user/property"));
+
+
+
+
+
+
 
 /* =======================
    DATABASE + STARTUP

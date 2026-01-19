@@ -7,7 +7,7 @@ const {
   GetTenantById, GetTenantsByBranch, calculatePending, UpdateTenant, getAllActiveTenant,
   BookingDetails,
   GetTenantRentHistory, getAllActiveTenantByBranch, GetTenantsByBranchId, getAlltenantbyStatus
-} = require("../controller/tenant");
+} = require("../controller/owner/tenant");
 
 const {DasboardBooking}=require("../controller/user/dashboardbooking")
 
