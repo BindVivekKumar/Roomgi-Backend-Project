@@ -3,7 +3,6 @@
 const Tenant = require("../../model/branchmanager/tenants")
 const Payment = require("../../model/payment")
 const PropertyBranch = require("../../model/owner/propertyBranch")
-const Complaint = require("../../model/user/complaints")
 const redisClient = require("../../utils/redis");
 const bcrypt = require("bcrypt")
 const Signup = require("../../model/user")
@@ -18,7 +17,6 @@ const Booking = require("../../model/user/booking")
 
 const { validationResult, body } = require("express-validator");
 const propertyBranch = require("../../model/owner/propertyBranch");
-const { signupcontroller } = require("../user");
 
 
 // ---------------------------

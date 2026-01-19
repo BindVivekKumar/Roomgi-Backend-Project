@@ -16,6 +16,8 @@ router.post("/forgotresumepassword/:resettoken",checkmail)
 router.post("/login", Logincontroller)
 router.get("/profile",Validate, GetUserProfile)
 router.get("/logout",Validate,Logoutcontroller)
+// router.post("/send-otp",Validate,Logoutcontroller)
+
 
 
 module.exports = router;

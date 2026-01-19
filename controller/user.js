@@ -14,7 +14,7 @@ const Signup = require("../model/user")
 const redisClient = require("../utils/redis");
 const Review = require("../model/user/review")
 const Complaint = require("../model/user/complaints")
-
+const Otp =require("../model/user/Otp")
 
 
 
@@ -286,7 +286,6 @@ const Logincontroller = async (req, res) => {
 }
 
 
-
 const Logoutcontroller = async (req, res) => {
     try {
 
@@ -348,7 +347,20 @@ const GetUserProfile = async (req, res) => {
 };
 
 
+// const sendotp=async(req,res)=>{
+//     try {
+//        const roomSecretCode = Math.floor(100000 + Math.random() * 900000);
 
+//        await Otp.create({
+//         email
+//        })
+
+//        const sendverifyemail
+        
+//     } catch (error) {
+        
+//     }
+// }
 
 
 

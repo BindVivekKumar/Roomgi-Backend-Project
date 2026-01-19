@@ -1,6 +1,7 @@
 const redisClient = require("../../utils/redis");
 const propertyBranch = require("../../model/owner/propertyBranch.js")
-
+const sendaddroommail=require("../../template/roomadd.js")
+const sendDeleteRoomMail=require("../../template/deleteroom.js")
 const Uploadmedia = require("../../utils/cloudinary.js")
 const deletemedia = require("../../utils/cloudinary.js")
 
@@ -13,7 +14,7 @@ const mongoose = require('mongoose');
 
 
 
-
+``
 
 
 
@@ -144,6 +145,9 @@ exports.AddRoom = async (req, res) => {
     branch.rooms.push(newRoom);
     await branch.save();
 
+
+    await sendaddroommail(req.user.email,req.user.username,roomNumber,branch.name,category,capacity,city)
+
     return res.status(201).json({
       success: true,
       message: "Room added successfully",
@@ -209,16 +213,45 @@ exports.ownerAllroom = async (req, res) => {
 exports.DeleteRoom = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user._id;
+
+    // 1️⃣ Find the branch containing this room
     const foundBranch = await PropertyBranch.findOne({ "rooms._id": id });
-    if (!foundBranch) return res.status(400).json({ success: false, message: "Branch not found for this room" });
+    if (!foundBranch)
+      return res.status(400).json({ success: false, message: "Branch not found for this room" });
 
     const room = foundBranch.rooms.id(id);
-    if (!room) return res.status(400).json({ success: false, message: "Room not found" });
+    if (!room)
+      return res.status(400).json({ success: false, message: "Room not found" });
 
+    // 2️⃣ Check occupancy
     if (room.occupied !== 0 || room.occupiedhotelroom !== 0 || room.occupiedRentalRoom !== 0) {
       return res.status(400).json({ success: false, message: "Someone has already occupied this room" });
     }
 
+    // 3️⃣ Store room details for email
+    const deletedRoomDetails = {
+      roomNumber: room.roomNumber,
+      category: room.category,
+      type: room.type || "-",
+      capacity: room.capacity,
+      city: room.city || foundBranch.city,
+      branchName: foundBranch.name,
+      price: room.price || "-",
+      renttype: room.renttype || "-",
+      flattype: room.flattype || "-",
+      roomtype: room.roomtype || "-",
+      hoteltype: room.hoteltype || "-",
+      rentperday: room.rentperday || "-",
+      rentperhour: room.rentperhour || "-",
+      rentperNight: room.rentperNight || "-",
+      services: room.services || [],
+      facilities: room.facilities || [],
+      rules: room.rules || [],
+      notAllowed: room.notAllowed || [],
+    };
+
+    // 4️⃣ Remove the room
     foundBranch.rooms.pull(id);
 
     if (room.verified) {
@@ -233,6 +266,7 @@ exports.DeleteRoom = async (req, res) => {
 
     await foundBranch.save();
 
+    // 5️⃣ Redis cache cleanup
     if (redisClient) {
       await redisClient.del("all-pg");
       const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
@@ -241,12 +275,29 @@ exports.DeleteRoom = async (req, res) => {
       if (branchKeys.length) await redisClient.del(branchKeys);
     }
 
+    // 6️⃣ Send deletion email via worker/queue
+    if (userId) {
+      const userEmail = req.user.email;
+      const username = req.user.username || "User";
+
+      // Example: push to queue (preferred for production)
+      await emailQueue.add("sendDeleteRoomEmail", {
+        email: userEmail,
+        username,
+        deletedRoomDetails,
+      });
+
+      // Or if you want inline sending (less ideal for production)
+       await sendDeleteRoomMail(userEmail, username, deletedRoomDetails);
+    }
+
     return res.status(200).json({ success: true, message: "Room Deleted Successfully" });
   } catch (error) {
-    console.error(error);
+    console.error("DeleteRoom Error:", error);
     return res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
+
 exports.getAllRoomOfBranch = async (req, res) => {
   try {
     const { id } = req.params;

@@ -24,16 +24,7 @@ exports.getAllPg = async (req, res) => {
     console.log("HIII");
 
     /* ---------------- REDIS CACHE ---------------- */
-    if (redisClient) {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        return res.status(200).json({
-          success: true,
-          message: "PGs from cache",
-          allrooms: JSON.parse(cached),
-        });
-      }
-    }
+    
 
     /* ---------------- DB QUERY (AGGREGATION) ---------------- */
     const allrooms = await PropertyBranch.aggregate([
