@@ -4,7 +4,7 @@ const {Validate} = require("../middleware/uservalidate");
 
 const {
     signupcontroller,forgotUser,checkmail,
-    getWishlist,toggleWishlist,
+    getWishlist,toggleWishlist,sendotp,
     Logincontroller,Logoutcontroller,GetUserProfile
 } = require("../controller/user");
 
@@ -16,7 +16,7 @@ router.post("/forgotresumepassword/:resettoken",checkmail)
 router.post("/login", Logincontroller)
 router.get("/profile",Validate, GetUserProfile)
 router.get("/logout",Validate,Logoutcontroller)
-// router.post("/send-otp",Validate,Logoutcontroller)
+ router.post("/send-otp",sendotp)
 
 
 

@@ -1,4 +1,4 @@
-
+const sendmail=require("../template/sendotpmail")
 const Wishlist = require("../model/user/wishlist")
 const bcrypt = require("bcrypt")
 const jwt = require("jsonwebtoken")
@@ -347,20 +347,43 @@ const GetUserProfile = async (req, res) => {
 };
 
 
-// const sendotp=async(req,res)=>{
-//     try {
-//        const roomSecretCode = Math.floor(100000 + Math.random() * 900000);
-
-//        await Otp.create({
-//         email
-//        })
-
-//        const sendverifyemail
+const sendotp=async(req,res)=>{
+    try {
+        const {email}=req.body
+        let abs;
+       const roomSecretCode = Math.floor(100000 + Math.random() * 900000);
+       const foundemail =await Otp.findOne({email:email});
+       if(foundemail){
+        foundemail.otp=roomSecretCode
+        await foundemail.save()
         
-//     } catch (error) {
+
+       }
+       else{
+      await Otp.create({
+        email,
+        otp:roomSecretCode
+       })
+       }
+  
+
+      await  sendmail(email,roomSecretCode)
+
+      
+
+      return res.status(200).json({
+        success:true,
+        message:"otp sent successfully"
+      })
         
-//     }
-// }
+    } catch (error) {
+        console.log(error)
+          return res.status(500).json({
+        success:false,
+        message:"please resend the otp"
+      })
+    }
+}
 
 
 
@@ -457,4 +480,4 @@ const checkmail = async (req, res) => {
 
     }
 }
-module.exports = { signupcontroller, getWishlist, toggleWishlist, GetUserProfile, Logincontroller, Logoutcontroller, forgotUser, checkmail };
+module.exports = { sendotp,signupcontroller, getWishlist, toggleWishlist, GetUserProfile, Logincontroller, Logoutcontroller, forgotUser, checkmail };

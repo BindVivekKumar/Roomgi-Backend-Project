@@ -13,7 +13,7 @@ const Mail = async (email, subject, htmlBody, textBody) => {
     });
 
     const mailOptions = {
-      from: `"Smart Resume Review" <${process.env.MAIL_USER}>`,
+      from: `"Roomgi private <${process.env.MAIL_USER}>`,
       to: email,
       subject,
       text: textBody,
@@ -96,4 +96,4 @@ If you didn’t request this, you can safely ignore this email.
   await Mail(to, subject, htmlBody, textBody);
 };
 
-module.exports = { sendForgotPasswordMail };
+module.exports = Mail; 
