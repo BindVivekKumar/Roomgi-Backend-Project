@@ -42,7 +42,7 @@ const tranEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 
 const Mail = async (email, subject, htmlBody, textBody) => {
   try {
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail({
+    const sendSmtpEmail = {
       to: [{ email }],
       sender: {
         email: process.env.MAIL_FROM_EMAIL,
@@ -51,16 +51,18 @@ const Mail = async (email, subject, htmlBody, textBody) => {
       subject,
       htmlContent: htmlBody,
       textContent: textBody,
-    });
+    };
 
     const result = await tranEmailApi.sendTransacEmail(sendSmtpEmail);
 
     console.log("✅ Mail sent:", result.messageId);
     return result;
   } catch (error) {
-    console.error("❌ Brevo Mail failed:", error?.response?.text || error.message);
-    throw new Error("Email could not be sent. Please try again later.");
+    console.error("❌ FULL Brevo Error:", error?.response?.text || error.message);
+    throw error;
   }
 };
 
+
 module.exports = Mail;
+
