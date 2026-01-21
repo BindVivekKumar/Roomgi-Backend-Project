@@ -9,6 +9,12 @@ const {
   getAllPg,
   getdetails
 } = require("../../controller/user/property");
+const {
+    servicecities,
+} = require("../../controller/admin/details");
+
+
+router.get("/services-cities", servicecities);
 
 router.get("/get/:id", getdetails)
 

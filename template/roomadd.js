@@ -1,6 +1,6 @@
 const mail = require("../utils/mail");
 
-async function sendAddRoomMail(toEmail, username, roomNumber, branchName, category, capacity, city) {
+async function sendaddroommail(toEmail, username, roomNumber, branchName, category, capacity, city) {
   try {
     const htmlBody = `
       <!DOCTYPE html>
@@ -91,3 +91,7 @@ async function sendAddRoomMail(toEmail, username, roomNumber, branchName, catego
     console.error("Failed to send add room email:", err);
   }
 }
+
+
+
+module.exports = sendaddroommail;

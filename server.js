@@ -87,6 +87,11 @@ app.use("/api/property/user", require("./router/user/property"));
 //admin
 app.use("/api/admin/certificate",require("./router/owner/certificate"))
 
+app.use("/api/property/admin",require("./router/admin/pg_details"))
+
+
+
+
 
 //common
 app.use("/api/v1/user", require("./router/user"));

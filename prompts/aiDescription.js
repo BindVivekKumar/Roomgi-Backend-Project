@@ -1,50 +1,55 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai"); // Correct Package Name
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// 1. Initialize API Key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 exports.generateRoomDescription = async ({ newRoom, branch }) => {
-  try {
-    // 2. Setup Model inside the function
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // 1. Move variable declarations outside Try block so Catch can see them
+    const safeArea = branch?.area || branch?.city || newRoom.city || "prime residential location";
+    const safeRent = newRoom.price || newRoom.rentperday || newRoom.rent || "competitive pricing";
+    const safeCategory = newRoom.category || "accommodation";
+    const safeCity = branch?.city || newRoom.city || "Ghaziabad";
+    const safeFurnished = newRoom.furnishedType || "well-maintained";
 
-    const facilities = newRoom.facilities?.length > 0 ? newRoom.facilities.join(", ") : "essential basic amenities";
-    const area = branch?.area || branch?.city || "prime location";
-    const rent = newRoom.price || newRoom.rentperday || "competitive";
+    try {
+        // ✅ FIX: Using "gemini-1.5-flash-latest" or just "gemini-1.5-flash"
+        // Also ensure your @google/generative-ai package is up to date
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const prompt = `
-      Act as a Senior Real Estate Copywriter for RoomGi. 
-      Generate a professional, human-like property listing based ONLY on these facts:
-      - Property: Room ${newRoom.roomNumber} (${newRoom.category})
-      - Location: ${area}, ${newRoom.city}
-      - Financials: ₹${rent} rent
-      - Setup: ${newRoom.furnishedType} furnishing
-      - Facilities: ${facilities}
-      - Rules: ${newRoom.rules?.join(", ") || "Standard guidelines"}
+        const facilities = Array.isArray(newRoom.facilities) && newRoom.facilities.length > 0
+            ? newRoom.facilities.join(", ")
+            : "basic essential amenities";
 
-      OUTPUT FORMAT (STRICT):
-      1. PROPERTY TITLE: [SEO Friendly Title]
-      2. KEY HIGHLIGHTS: [3 short bullet points]
-      3. FULL DESCRIPTION: 
-         Write EXACTLY 3 impactful and flowing lines:
-         Line 1: Location advantage of ${area}.
-         Line 2: Room comfort, rent (₹${rent}), and ${facilities}.
-         Line 3: Suitability and a trust-building closing.
-      4. IDEAL FOR: [1 concise line]
-      5. SEARCH KEYWORDS: [10 keywords]
+        const rules = Array.isArray(newRoom.rules) && newRoom.rules.length > 0
+            ? newRoom.rules.join(", ")
+            : "Standard PG guidelines";
 
-      NOTE: DO NOT use markdown bold (**) or symbols.
-    `;
+        const prompt = `
+            Act as a Senior Real Estate Copywriter for RoomGi.
+            Generate a professional rental listing:
+            - Room: ${newRoom.roomNumber} (${safeCategory})
+            - City: ${safeCity}
+            - Area: ${safeArea}
+            - Rent: ₹${safeRent}
+            - Furnishing: ${safeFurnished}
+            - Facilities: ${facilities}
+            - Rules: ${rules}
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text();
+            STRICT FORMAT: 1. TITLE, 2. HIGHLIGHTS, 3. DESCRIPTION (3 sentences), 4. IDEAL FOR, 5. KEYWORDS.
+            No Markdown symbols.
+        `;
 
-    // Cleaning the output
-    return text.replace(/\*\*/g, "").replace(/#/g, "").trim();
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
 
-  } catch (error) {
-    console.error("AI Description Error:", error);
-    return "Professional room in " + (branch?.city || "Ghaziabad") + " available for rent.";
-  }
+        return text.replace(/\*/g, "").replace(/#/g, "").trim();
+
+    } catch (error) {
+        // Detailed logging for you, but the app won't crash
+        console.error("AI API Error:", error.message);
+
+        // ✅ FIXED: Using 'safeArea', 'safeCity', etc. which are defined above
+        return `Professional ${safeCategory} available for rent in ${safeArea}, ${safeCity}. 
+        This ${safeFurnished} property features ${newRoom.facilities?.slice(0, 3).join(", ") || "essential amenities"}. 
+        Monthly rent is ₹${safeRent}. Perfect for students and working professionals.`.replace(/\s+/g, ' ');
+    }
 };
