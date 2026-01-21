@@ -186,7 +186,6 @@ exports.verifying = async (req, res) => {
 
         await branch.save({ session });
         console.log("✅ Room locked:", room.roomNumber, "Occupied:", room.occupied);
-
         // ---------- CREATE BOOKING ----------
         console.log("📌 Creating booking record...");
         const booking = await Booking.create([{
@@ -194,7 +193,7 @@ exports.verifying = async (req, res) => {
             email: req.user.email,
             branch: branch._id,
             room: room._id,
-            securityDeposit: room.advancedmonth * (room.price || room.rentperday || room.rentperhour || room.rentperNight),
+            securityDeposit: room.advancedmonth * (room.price || room.rentperday || room.rentperhour || room.rentperNight)||0,
             roomNumber: room.roomNumber,
             paymentSource: "online",
             status: "processing",
@@ -211,7 +210,7 @@ exports.verifying = async (req, res) => {
             userId: req.user._id,
             username: req.user.username,
         }], { session });
-        console.log("✅ Booking created:", booking[0].bookingId);
+        console.log("✅ Booking created:", booking[0]);
 
         // ---------- REDIS INVALIDATION ----------
         console.log("♻️ Invalidating Redis cache...");
@@ -224,10 +223,16 @@ exports.verifying = async (req, res) => {
 
         // ---------- PUSH TO WORKER ----------
         console.log("📤 Adding job to paymentQueue...");
-        await paymentQueue.add("paymentQueue", {
-            bookingId: booking[0].bookingId,
-            razorpay_payment_id,
-        });
+        // await paymentQueue.add("paymentQueue", {
+        //     bookingId: booking[0].bookingId,
+        //     razorpay_payment_id,
+        //     razorpay_order_id
+        // });
+
+
+
+
+        
         console.log("✅ Job added to paymentQueue");
 
         // ---------- COMMIT TRANSACTION ----------
@@ -343,7 +348,7 @@ exports.verifyingRentPayment = async (req, res) => {
       tenantId,
       paymentId: payment[0]._id,
       amount: paidAmount,
-      walletUsed: walletAmount
+      // walletUsed: walletAmount
     });
 
     /* ---------------- COMMIT ---------------- */
