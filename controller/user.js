@@ -368,6 +368,7 @@ const sendotp=async(req,res)=>{
   
 
       await  sendmail(email,roomSecretCode)
+      console.log(roomSecretCode)
 
       
 
