@@ -31,5 +31,3 @@ const Mail = async (email, subject, htmlBody, textBody) => {
 };
 
 module.exports = Mail;
-
-module.exports = Mail;
