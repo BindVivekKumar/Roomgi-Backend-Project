@@ -2,7 +2,7 @@ const sendmail=require("../template/sendotpmail")
 const Wishlist = require("../model/user/wishlist")
 const bcrypt = require("bcrypt")
 const jwt = require("jsonwebtoken")
-const { sendForgotPasswordMail } = require('../utils/mail')
+const  sendForgotPasswordMail  = require('../template/forgotpasswordmail')
 const crypto = require('crypto')
 const { Uploadmedia, deletemedia } = require("../utils/cloudinary")
 const Payment = require("../model/payment")
@@ -398,7 +398,7 @@ const forgotUser = async (req, res) => {
         }
         const resetSession = Date.now() + 360000;
         const resetLink = await crypto.randomBytes(32).toString('hex');
-        const finalresetlink = `https://smart-resume-reviewer.vercel.app/forgotresumepassword/${resetLink}`
+        const finalresetlink = `www.roomgi.com/forgotpasswordpage/${resetLink}`
         founduser.resetSession = resetSession;
         founduser.resetLink = resetLink;
         await founduser.save();
@@ -427,20 +427,17 @@ const checkmail = async (req, res) => {
 
     try {
 
-        const { password, confermpassword } = req.body;
+        const { password } = req.body;
         const { resettoken } = req.params;
         console.log(resettoken)
 
-        if (!password || !confermpassword) {
+        if (!password ) {
             return res.status(400).json({
                 success: false,
                 message: `plesae fill the filled `,
             })
         }
-        if (password != confermpassword) return res.status(400).json({
-            success: false,
-            message: `passowrd filled carefully`
-        })
+        i
         const user = await Signup.findOne({ resetLink: resettoken, resetSession: { $gt: Date.now() } });
 
         if (!user) {

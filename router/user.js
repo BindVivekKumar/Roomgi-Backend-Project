@@ -12,7 +12,7 @@ router.post("/wishlist/toggle", Validate, toggleWishlist);
 router.get("/wishlist/my", Validate, getWishlist);
 router.post("/register", signupcontroller);
 router.post("/forgotpassword",forgotUser)
-router.post("/forgotresumepassword/:resettoken",checkmail)
+router.post("/resetpassword/:resettoken",checkmail)
 router.post("/login", Logincontroller)
 router.get("/profile",Validate, GetUserProfile)
 router.get("/logout",Validate,Logoutcontroller)
