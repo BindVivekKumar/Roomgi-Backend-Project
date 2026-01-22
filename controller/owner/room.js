@@ -146,7 +146,7 @@ exports.AddRoom = async (req, res) => {
     await branch.save();
 
 
-    await sendaddroommail(req.user.email,req.user.username,roomNumber,branch.name,category,capacity,city)
+    await sendaddroommail(req.user.email,req.user.username,roomNumber,branch.name,category,capacity)
 
     return res.status(201).json({
       success: true,
