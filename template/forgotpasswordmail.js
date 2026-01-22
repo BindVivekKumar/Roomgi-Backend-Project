@@ -93,7 +93,7 @@ Hi ${username},
 
 We received a request to reset your Roomgi account password.
 
-Reset your password using the link below (valid for 30 minutes):
+Reset your password using the link  below (valid for 30 minutes):
 ${resetLink}
 
 If you didn’t request this, you can safely ignore this email.
