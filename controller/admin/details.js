@@ -38,21 +38,7 @@ exports.whereweare = async (req, res) => {
 
 
 
-exports.getLocations = async (req, res) => {
-  try {
-    const locations = await Location.find().sort({ name: 1 });
 
-    res.status(200).json({
-      success: true,
-      data: locations,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
-};
 
 exports.servicecities = async (req, res) => {
   try {

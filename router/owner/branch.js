@@ -9,6 +9,9 @@ const {
     GetAllBranchByBranchId,GetAllBranchOwner,
     listPgRoom,getalllistedandunlisted,
     GetAllBranch,AddBranch,DeleteBranch,EditBranch,
+      getStates,
+  getcities,
+  getlocationname
 
 
 } = require("../../controller/owner/branch");
@@ -27,7 +30,14 @@ router.get("/get", Validate, GetAllBranch)
 
 
 
+// Get all states
+router.get("/states", getStates);
 
+// Get cities by state
+router.post("/cities", getcities);
+
+// Get location names by state + city
+router.post("/locations", getlocationname);
 
 
 
