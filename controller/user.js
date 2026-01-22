@@ -469,7 +469,7 @@ const checkmail = async (req, res) => {
         console.log("error", error);
         res.status(500).json({
             success: false,
-            message: `intrnal server error`,
+            message: `intrnal server error/${error}`,
         })
 
     }
