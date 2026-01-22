@@ -398,7 +398,7 @@ const forgotUser = async (req, res) => {
         }
         const resetSession = Date.now() + 1800000;
         const resetLink = await crypto.randomBytes(32).toString('hex');
-        const finalresetlink = `http://localhost:5000/forgotpasswordpage/${resetLink}`
+        const finalresetlink = `www.roomgi.com/forgotpasswordpage/${resetLink}`
         founduser.resetSession = resetSession;
         founduser.resetLink = resetLink;
         await founduser.save();
