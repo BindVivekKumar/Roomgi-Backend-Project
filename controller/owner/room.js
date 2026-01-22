@@ -46,6 +46,7 @@ exports.AddRoom = async (req, res) => {
     const {
       roomNumber,
       type,
+      branchid,
       price,
       facilities,
       description,
@@ -58,7 +59,6 @@ exports.AddRoom = async (req, res) => {
       rentperhour,
       rentperNight,
       category,
-      city,
       hoteltype,
       roomtype,
       renttype,
@@ -73,7 +73,7 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    const branch = await propertyBranch.findOne({ owner: req.user.id });
+    const branch = await propertyBranch.findById(branchid);
     if (!branch) {
       return res.status(404).json({
         success: false,
@@ -105,7 +105,7 @@ exports.AddRoom = async (req, res) => {
     const newRoom = {
       roomNumber: Number(roomNumber),
       category,
-      city: city || branch.city,
+      city: branch.city,
       services: service || [],
 
       type: category === "Pg" ? type : undefined,
