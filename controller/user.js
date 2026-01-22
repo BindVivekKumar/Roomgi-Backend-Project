@@ -396,9 +396,9 @@ const forgotUser = async (req, res) => {
                 message: `not found the use with this email`
             })
         }
-        const resetSession = Date.now() + 360000;
+        const resetSession = Date.now() + 1800000;
         const resetLink = await crypto.randomBytes(32).toString('hex');
-        const finalresetlink = `www.roomgi.com/forgotpasswordpage/${resetLink}`
+        const finalresetlink = `http://localhost:5000/forgotpasswordpage/${resetLink}`
         founduser.resetSession = resetSession;
         founduser.resetLink = resetLink;
         await founduser.save();
@@ -437,7 +437,7 @@ const checkmail = async (req, res) => {
                 message: `plesae fill the filled `,
             })
         }
-        i
+        
         const user = await Signup.findOne({ resetLink: resettoken, resetSession: { $gt: Date.now() } });
 
         if (!user) {
