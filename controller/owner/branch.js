@@ -1,3 +1,4 @@
+const Location = require("../../model/admin/location");
 
 const redisClient = require("../../utils/redis");
 const PropertyBranch = require("../../model/owner/propertyBranch.js")
@@ -33,6 +34,100 @@ exports.GetAllBranch = async (req, res) => {
     return handleError(res, error, "Failed to get branches");
   }
 };
+
+exports.getStates = async (req, res) => {
+  try {
+    const states = await Location.distinct("state");
+
+    states.sort(); // A-Z sorting
+
+    res.status(200).json({
+      success: true,
+      data: states,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+exports.getcities = async (req, res) => {
+  try {
+    const { state } = req.body;
+
+    if (!state) {
+      return res.status(400).json({
+        success: false,
+        message: "State is required",
+      });
+    }
+
+    const cities = await Location.distinct("city", { state });
+
+    cities.sort(); // A-Z sorting
+
+    res.status(200).json({
+      success: true,
+      data: cities,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+
+exports.getlocationname = async (req, res) => {
+  try {
+    const { state, city } = req.body;
+
+    if (!state || !city) {
+      return res.status(400).json({
+        success: false,
+        message: "State and city are required",
+      });
+    }
+
+    const places = await Location.aggregate([
+      { $match: { state, city } },
+      {
+        $group: {
+          _id: { name: "$name", pincode: "$pincode" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          name: "$_id.name",
+          pincode: "$_id.pincode"
+        }
+      },
+      { $sort: { name: 1 } }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: places,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+
+
+
+
+
 
 // ----------------------
 // Edit Branch
@@ -110,50 +205,97 @@ exports.DeleteBranch = async (req, res) => {
 // ----------------------
 exports.AddBranch = async (req, res) => {
   try {
-    console.log(req.body)
     const userId = req.user._id;
-    const imageFiles = req.files || [];
+  
 
     const foundProperty = await Signup.findById(userId);
-    if (!foundProperty) return res.status(404).json({ success: false, message: "Property not found" });
+    if (!foundProperty) {
+      return res.status(404).json({ success: false, message: "Owner not found" });
+    }
 
-    const { address, city, state, pincode, name, streetAdress, landmark } = req.body;
-    if (!address || !city || !state || !pincode || !streetAdress || !landmark || !name)
+    const { address, city, state, pincode, name, streetAdress, landmark, locationName } = req.body;
+
+    if (!address || !city || !state || !pincode || !name) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
 
-    // Parallel image upload
-    const uploadImages = await Promise.all(
-      imageFiles.map(file => Uploadmedia.Uploadmedia(file.path).then(res => res.secure_url))
-    );
+ 
 
-    // Geocode address
-    const fullAddress = `${streetAdress}, ${landmark}, ${address}, ${city}, ${state}, ${pincode}`;
+    // 🔥 More accurate full address
+    const fullAddress = `${name}, ${locationName || ""}, ${streetAdress || ""}, ${landmark || ""}, ${address}, ${city}, ${state} - ${pincode}, India`;
+
     const geo = await axios.get("https://maps.googleapis.com/maps/api/geocode/json", {
-      params: { address: fullAddress, key: process.env.GOOGLE_API_KEY },
+      params: {
+        address: fullAddress,
+        key: process.env.GOOGLE_API_KEY,
+      },
     });
 
-    if (!(geo.data.status === "OK" && geo.data.results.length > 0))
-      return res.status(400).json({ success: false, message: "Unable to fetch latitude and longitude" });
+    if (!geo.data || geo.data.status !== "OK" || geo.data.results.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Unable to fetch accurate location",
+      });
+    }
 
-    const { lat, lng } = geo.data.results[0].geometry.location;
+    // 🔥 Prefer ROOFTOP accuracy
+    let bestResult = geo.data.results[0];
+    const rooftopResult = geo.data.results.find(
+      r => r.geometry.location_type === "ROOFTOP"
+    );
+    if (rooftopResult) bestResult = rooftopResult;
+
+    const { lat, lng } = bestResult.geometry.location;
 
     const createdBranch = await PropertyBranch.create({
-      city, name, address, state, pincode, streetAdress, landmark,
+      name,
+      address,
+      streetAdress,
+      landmark,
+      city,
+      state,
+      pincode,
+      locationName,
+
       owner: userId,
       property: foundProperty._id,
-      Propertyphoto: uploadImages,
-      location: { type: "Point", coordinates: [lng, lat] },
-      lat, long: lng,
+
+    
+
+      // 🌍 GeoJSON
+      location: {
+        type: "Point",
+        coordinates: [lng, lat],
+      },
+
+      lat,
+      long: lng,
+
+      // Extra accuracy data
+      placeId: bestResult.place_id,
+      formattedAddress: bestResult.formatted_address,
+      locationType: bestResult.geometry.location_type,
     });
 
-    if (redisClient) await redisClient.del(`branches-${req.user._id}-allbranch`);
+    if (redisClient) {
+      await redisClient.del(`branches-${req.user._id}-allbranch`);
+    }
 
+    return res.status(200).json({
+      success: true,
+      message: "Branch created successfully",
+      createdBranch,
+    });
 
-    return res.status(200).json({ success: true, message: "Branch created successfully", createdBranch });
   } catch (error) {
-    return handleError(res, error, "Failed to add branch");
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to add branch",
+    });
   }
 };
+
 
 
 

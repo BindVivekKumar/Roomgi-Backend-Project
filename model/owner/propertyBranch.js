@@ -199,51 +199,81 @@ RoomSchema.index({
 // ------------------- PROPERTY BRANCH SCHEMA -------------------
 
 const propertyBranchSchema = new mongoose.Schema({
-    owner: { type: mongoose.Schema.Types.ObjectId, ref: "Signup", required: true, index: true },
-    branchmanager: { type: mongoose.Schema.Types.ObjectId, ref: "branchmanager", index: true },
-    name: { type: String, index: true },
-    address: { type: String, required: true, index: true },
-    city: { type: String, index: true },
-    streetAdress: { type: String },
-    landmark: { type: String },
-    state: { type: String, index: true },
-    pincode: { type: Number, index: true },
+  owner: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "Signup", 
+    required: true, 
+    index: true 
+  },
 
-    totelhotelroom: { type: Number, default: 0 },
-    occupiedhotelroom: { type: Number, default: 0 },
-    occupiedRentalRoom: { type: Number, default: 0 },
-    totalrentalRoom: { type: Number, default: 0 },
+  branchmanager: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "branchmanager", 
+    index: true 
+  },
 
-    location: {
-        type: {
-            type: String,
-            enum: ["Point"],
-            default: "Point",
-        },
-        coordinates: { type: [Number] }, // [lng, lat]
+  // ===== BASIC INFO =====
+  name: { type: String, required: true, index: true },
+  address: { type: String, required: true, index: true },
+  streetAdress: { type: String },
+  landmark: { type: String },
+
+  // ===== LOCATION HIERARCHY =====
+  state: { type: String, required: true, index: true },
+  city: { type: String, required: true, index: true },
+
+  locationName: { type: String, required: true, index: true }, // <-- ADDED
+
+  pincode: { type: Number, required: true, index: true },
+
+  // ===== GEO LOCATION =====
+  location: {
+    type: {
+      type: String,
+      enum: ["Point"],
+      default: "Point",
     },
+    coordinates: { type: [Number] }, // [lng, lat]
+  },
 
-    lat: { type: Number },
-    long: { type: Number },
+  lat: { type: Number },
+  long: { type: Number },
 
-    totalBeds: { type: Number, default: 0 },
-    facilities: { type: [String] },
-    roomNumbers: { type: [Number], required: true },
-    advanced: { type: Number, default: 0 },
-    dues: { type: Number, default: 0 },
-    rent: { type: Number, default: 0 },
-    rooms: [RoomSchema],
-    occupiedRoom: [{ type: Number }],
+  // ===== ROOMS & OCCUPANCY =====
+  totelhotelroom: { type: Number, default: 0 },
+  occupiedhotelroom: { type: Number, default: 0 },
 
-    status: {
-        type: String,
-        enum: ["Active", "InActive", "maintenance", "coming-Soon"],
-        default: "Active",
-        index: true
-    },
+  totalrentalRoom: { type: Number, default: 0 },
+  occupiedRentalRoom: { type: Number, default: 0 },
 
-    Propertyphoto: { type: [String] },
+  totalBeds: { type: Number, default: 0 },
+
+  rooms: [RoomSchema],
+  occupiedRoom: [{ type: Number }],
+
+  roomNumbers: { type: [Number], required: true },
+
+  // ===== FINANCIAL =====
+  advanced: { type: Number, default: 0 },
+  dues: { type: Number, default: 0 },
+  rent: { type: Number, default: 0 },
+
+  // ===== AMENITIES =====
+  facilities: { type: [String] },
+
+  // ===== STATUS =====
+  status: {
+    type: String,
+    enum: ["Active", "InActive", "maintenance", "coming-Soon"],
+    default: "Active",
+    index: true
+  },
+
+  // ===== MEDIA =====
+  Propertyphoto: { type: [String] },
+
 }, { timestamps: true });
+
 
 
 propertyBranchSchema.index({ location: "2dsphere" });
