@@ -171,35 +171,61 @@ exports.EditBranch = async (req, res) => {
 exports.DeleteBranch = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { id } = req.body;
+    const { id: branchId } = req.body;
 
-    const foundBranch = await PropertyBranch.findById(id).select("owner occupiedRoom");
-    if (!foundBranch) return res.status(404).json({ success: false, message: "Branch not found" });
+    const foundBranch = await PropertyBranch.findById(branchId).select(
+      "owner occupiedRoom rooms"
+    );
+
+    if (!foundBranch)
+      return res.status(404).json({ success: false, message: "Branch not found" });
 
     if (!foundBranch.owner.equals(userId))
       return res.status(403).json({ success: false, message: "Unauthorized" });
 
     if (foundBranch.occupiedRoom.length > 0)
-      return res.status(400).json({ success: false, message: "Some rooms are occupied" });
-    
+      return res
+        .status(400)
+        .json({ success: false, message: "Some rooms are occupied" });
 
+    /* ---------------- DELETE ROOMS ONE BY ONE ---------------- */
+    if (foundBranch.rooms && foundBranch.rooms.length > 0) {
+      for (const room of foundBranch.rooms) {
+        foundBranch.rooms.pull(room._id); // 🔥 ek-ek room delete
+      }
+      await foundBranch.save();
+    }
+
+    /* ---------------- DELETE BRANCH ---------------- */
     await foundBranch.deleteOne();
 
-    if (redisClient) {
-      const patterns = ["branches-*", `room-${id}*`, "rooms-all", `branchManagerComplaints-${branchId}`, `branchComplaints-${branchId}`];
-      const pipeline = redisClient.pipeline();
-      for (const pattern of patterns) {
-        const keys = await redisClient.keys(pattern);
-        keys.forEach(k => pipeline.del(k));
-      }
-      await pipeline.exec();
-    }
- 
-    return res.status(200).json({ success: true, message: "Branch deleted successfully" });
+    /* ---------------- REDIS INVALIDATION ---------------- */
+    // if (redisClient) {
+    //   const patterns = [
+    //     "branches-*",
+    //     "rooms-all",
+    //     `room-${branchId}*`,
+    //     `branchManagerComplaints-${branchId}`,
+    //     `branchComplaints-${branchId}`,
+    //   ];
+
+    //   const pipeline = redisClient.pipeline();
+    //   for (const pattern of patterns) {
+    //     const keys = await redisClient.keys(pattern);
+    //     keys.forEach((k) => pipeline.del(k));
+    //   }
+    //   await pipeline.exec();
+    // }
+
+    return res.status(200).json({
+      success: true,
+      message: "Branch and all rooms deleted successfully",
+    });
   } catch (error) {
     return handleError(res, error, "Failed to delete branch");
   }
 };
+
 
 // ----------------------
 // Add Branch
@@ -420,16 +446,16 @@ exports.GetAllBranchOwner = async (req, res) => {
     const cacheKey = `branches-${ownerId}-allbranch`;
 
     // Check Redis cache
-    if (redisClient) {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        return res.status(200).json({
-          success: true,
-          message: "Branches from cache",
-          allbranch: JSON.parse(cached),
-        });
-      }
-    }
+    // if (redisClient) {
+    //   const cached = await redisClient.get(cacheKey);
+    //   if (cached) {
+    //     return res.status(200).json({
+    //       success: true,
+    //       message: "Branches from cache",
+    //       allbranch: JSON.parse(cached),
+    //     });
+    //   }
+    // }
 
     // Fetch all branches for this owner
     const allbranch = await PropertyBranch.find({ owner: ownerId })
