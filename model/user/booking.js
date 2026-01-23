@@ -67,6 +67,13 @@ const bookingSchema = new mongoose.Schema(
             refundId: String,
             signature: String,
         },
+         tenantId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Tenant",
+             
+                index: true   // 🔥 fast tenant-history search
+            },
+        
 
         /* ---------- OFFLINE INFO ---------- */
         collectedBy: {

@@ -24,13 +24,12 @@ const razorpay = new Razorpay({
 
 
 
-
 exports.bookingConfermation = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Fetch booking and populate room info
-        const booking = await Booking.findById(id).populate("branch");
+        // Fetch booking and populate branch & tenant
+        const booking = await Booking.findById(id).populate("branch tenantId");
 
         if (!booking) {
             return res.status(404).json({
@@ -39,22 +38,24 @@ exports.bookingConfermation = async (req, res) => {
             });
         }
 
-        const room = booking.room;
+        // If rooms are embedded in branch, get room from branch
+        const room = booking.branch?.rooms.id(booking.roomId);
 
         return res.status(200).json({
             success: true,
             bookingId: booking._id,
             status: booking.status,
             username: booking.username,
-            branchName: booking?.branch?.name || null,
-            roomNumber: booking?.roomNumber || null,
+            branchName: booking.branch?.name || null,
+            roomNumber: room?.roomNumber || booking.roomNumber || null,
             amount: booking.amountPaid,
         });
+
     } catch (error) {
         console.error("Error fetching booking:", error);
         return res.status(500).json({
             success: false,
-            message: "Server error",
+            message: "Server error"`${error}`,
             error: error.message,
         });
     }

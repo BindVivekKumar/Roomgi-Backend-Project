@@ -710,7 +710,6 @@ exports.getAlltenantbyStatus = async (req, res) => {
   try {
     const { status } = req.params;
 
-    // ✅ Validate status
     const allowedStatus = ["Active", "Inactive", "Vacated", "all"];
     if (!allowedStatus.includes(status)) {
       return res.status(400).json({
@@ -719,33 +718,20 @@ exports.getAlltenantbyStatus = async (req, res) => {
       });
     }
 
-    // // ✅ Cache key
-    // const cacheKey = `tenant-${managerEmail}-${status}`;
+    // ✅ Find branches
+    const branches = await PropertyBranch
+      .find({ owner: req.user._id })
+      .select("_id");
 
-    // // ✅ Redis cache
-    // const cachedData = await redisClient.get(cacheKey);
-    // if (cachedData) {
-    //   return res.status(200).json({
-    //     success: true,
-    //     message: "Tenants fetched from cache",
-    //     tenants: JSON.parse(cachedData),
-    //   });
-    // }
-
-    // ✅ Get all branches of owner/manager
-    const branches = await PropertyBranch.find({ owner: req.user._id }).select("_id");
-
-    if (!branches || branches.length === 0) {
+    if (!branches.length) {
       return res.status(404).json({
         success: false,
         message: "No branches found",
       });
     }
 
-    // ✅ Extract branch IDs
-    const branchIds = branches.map((b) => b._id);
+    const branchIds = branches.map(b => b._id);
 
-    // ✅ Build query
     const query =
       status === "all"
         ? { branch: { $in: branchIds } }
@@ -754,15 +740,32 @@ exports.getAlltenantbyStatus = async (req, res) => {
     // ✅ Fetch tenants
     const tenants = await Tenant.find(query).sort({ createdAt: -1 });
 
-    // ✅ Cache for 1 hour
-    // await redisClient.setEx(cacheKey, 3600, JSON.stringify(tenants));
+    // ✅ Fetch all bookings for these tenants (ONE QUERY)
+    const tenantIds = tenants.map(t => t._id);
+
+    const bookings = await Booking.find({
+      tenantId: { $in: tenantIds }
+    });
+
+    // ✅ Map bookings by tenantId
+    const bookingMap = {};
+    for (const booking of bookings) {
+      bookingMap[booking.tenantId.toString()] = booking;
+    }
+
+    // ✅ Attach booking to tenant
+    const tenantsWithBooking = tenants.map(tenant => ({
+      ...tenant.toObject(),
+      booking: bookingMap[tenant._id.toString()] || null
+    }));
 
     return res.status(200).json({
       success: true,
       message: "Tenants fetched successfully",
-      count: tenants.length,
-      tenants,
+      count: tenantsWithBooking.length,
+      tenants: tenantsWithBooking,
     });
+
   } catch (error) {
     console.error("getAlltenantbyStatus Error:", error);
     return res.status(500).json({

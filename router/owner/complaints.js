@@ -17,7 +17,6 @@ console.log("🚀 Complaint Routes Initialized");
 
 // 3. Specific Filters (Dynamic Params)
 // Inhe ID waale route se hamesha upar rakhein
-router.get("/tenant", Validate, complaintController.getTenantComplaints);
 router.get("/branch/:branchId", Validate, complaintController.getAllComplaintsOfBranch);
 router.get("/status/:status", Validate, complaintController.getComplaintsByStatus);
 router.get("/category/:category", Validate, complaintController.getComplaintsByCategory);

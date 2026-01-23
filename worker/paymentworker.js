@@ -123,6 +123,7 @@ const paymentWorker = new Worker(
 
       /* ---------- UPDATE BOOKING ---------- */
       booking.status = "paid";
+      booking.tenantId=tenant._id;
       await booking.save({ session });
 
       /* ---------- CLEAR CACHE ---------- */
