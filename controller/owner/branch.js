@@ -457,11 +457,11 @@ exports.GetAllBranchOwner = async (req, res) => {
     //   }
     // }
 
-    // Fetch all branches for this owner
+    // Fetch only required fields
     const allbranch = await PropertyBranch.find({ owner: ownerId })
+      .select("_id name city landmark rooms totalrentalRoom totelhotelroom")
       .lean();
 
-    
     // Cache result
     if (redisClient) {
       await redisClient.setEx(cacheKey, 3600, JSON.stringify(allbranch));
@@ -470,11 +470,11 @@ exports.GetAllBranchOwner = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "All branches fetched",
-      allbranch: allbranch,
+      allbranch,
     });
 
   } catch (error) {
-    console.log("GetAllBranchOwner Error:", error);
+    console.error("GetAllBranchOwner Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -482,6 +482,7 @@ exports.GetAllBranchOwner = async (req, res) => {
     });
   }
 };
+
 
 
 
