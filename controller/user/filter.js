@@ -28,59 +28,128 @@ exports.AppliedAllFilters = async (req, res) => {
       flattype = "any",
       roomtype = "any",
       pg = "any",
-      facilities = []
+      facilities = [],
     } = req.body;
 
-    // Fetch only rooms from all branches
-    const branches = await PropertyBranch.find({}, "rooms").lean();
+    const matchConditions = {
+      "rooms.toPublish.status": true,
+      "rooms.verified": true,
+    };
 
-    let rooms = branches.flatMap(branch => branch.rooms);
-
-    // ---------------------------
-    // 🔥 APPLY FILTERS
-    // ---------------------------
-
-    // 🌍 City filter (partial match, case-insensitive)
+    // 🌍 City filter
     if (city.trim()) {
-      const cityRegex = new RegExp(city.slice(0, 4), "i");
-      rooms = rooms.filter(r => r.city && cityRegex.test(r.city));
+      matchConditions["rooms.city"] = new RegExp(city.slice(0, 5), "i");
     }
 
-    // 💸 Price & Category filters
-    if (category !== "any") rooms = rooms.filter(r => r.category?.toLowerCase() === category.toLowerCase());
+    // 🏷 Category
+    if (category !== "any") {
+      matchConditions["rooms.category"] = category;
+    }
 
+    // 💸 Price logic
     if (category === "Hotel") {
-      if (hoteltype !== "any") rooms = rooms.filter(r => r.hoteltype?.toLowerCase() === hoteltype.toLowerCase());
-      rooms = rooms.filter(r => r.rentperday >= min && r.rentperday <= max);
+      matchConditions["rooms.rentperday"] = { $gte: min, $lte: max };
+      if (hoteltype !== "any") {
+        matchConditions["rooms.hoteltype"] = hoteltype;
+      }
     } else {
-      rooms = rooms.filter(r => r.price >= min && r.price <= max);
+      matchConditions["rooms.price"] = { $gte: min, $lte: max };
     }
 
-    // 🏘 Rented-Room type filters
+    // 🏘 Rented Room filters
     if (category === "Rented-Room") {
-      if (Rented_Room_type !== "any") rooms = rooms.filter(r => r.renttype === Rented_Room_type);
-      if (Rented_Room_type === "Flat-Rent" && flattype !== "any") rooms = rooms.filter(r => r.flattype === flattype);
-      if (Rented_Room_type === "Room-Rent" && roomtype !== "any") rooms = rooms.filter(r => r.roomtype === roomtype);
+      if (Rented_Room_type !== "any") {
+        matchConditions["rooms.renttype"] = Rented_Room_type;
+      }
+
+      if (Rented_Room_type === "Flat-Rent" && flattype !== "any") {
+        matchConditions["rooms.flattype"] = flattype;
+      }
+
+      if (Rented_Room_type === "Room-Rent" && roomtype !== "any") {
+        matchConditions["rooms.roomtype"] = roomtype;
+      }
     }
 
-    // 🛏 PG Room type
-    if (category === "Pg" && pg !== "any") rooms = rooms.filter(r => r.type === pg);
+    // 🛏 PG type
+    if (category === "Pg" && pg !== "any") {
+      matchConditions["rooms.type"] = pg;
+    }
 
-    // 🚹 Universal type filter (Boys/Girls/Co-ed)
-    if (type !== "any") rooms = rooms.filter(r => r.type?.toLowerCase() === type.toLowerCase());
+    // 🚹 Allowed for (boys/girls/co-ed)
+    if (type !== "any") {
+      matchConditions["rooms.type"] = type;
+    }
 
-    // 🛠 Facilities filter (all selected facilities must exist)
+    // 🛠 Facilities (all must exist)
     if (facilities.length > 0) {
-      rooms = rooms.filter(r => r.facilities && facilities.every(f => r.facilities.includes(f)));
+      matchConditions["rooms.facilities"] = { $all: facilities };
     }
 
-    return res.status(200).json({ success: true, count: rooms.length, data: rooms });
+    const rooms = await PropertyBranch.aggregate([
+      { $unwind: "$rooms" },
+
+      { $match: matchConditions },
+
+      // 🔗 Join Branch info
+      {
+        $lookup: {
+          from: "propertybranches",
+          localField: "_id",
+          foreignField: "_id",
+          as: "branchData",
+        },
+      },
+      { $unwind: "$branchData" },
+
+      // 📦 Final shape
+      {
+        $project: {
+          _id: "$rooms._id",
+          category: "$rooms.category",
+          price: {
+            $cond: [
+              { $eq: ["$rooms.category", "Hotel"] },
+              "$rooms.rentperday",
+              "$rooms.price",
+            ],
+          },
+          city: "$rooms.city",
+          type: "$rooms.type",
+          vacant: "$rooms.vacant",
+          facilities: "$rooms.facilities",
+          roomImages: "$rooms.roomImages",
+          personalreview: "$rooms.personalreview",
+          verified: "$rooms.verified",
+
+          branch: {
+            name: "$branchData.name",
+            address: "$branchData.address",
+            Propertyphoto: "$branchData.Propertyphoto",
+          },
+        },
+      },
+
+      // 🚀 Pagination / limit
+      { $limit: 20 },
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      count: rooms.length,
+      data: rooms,
+    });
 
   } catch (error) {
-    console.error("Filter Error:", error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    console.error("AppliedAllFilters Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+
 
 // ---------------------------
 // APPLY FILTERS BASED ON CITY
@@ -92,14 +161,54 @@ exports.AppliedFilters = async (req, res) => {
 
     const cityRegex = new RegExp(`^${cityFromQuery.slice(0, 5)}`, "i");
 
-    const allBranches = await PropertyBranch.find({}, "rooms").lean();
-    if (!allBranches.length) return res.status(400).json({ success: false, message: "No Rooms Are Available" });
+      const allrooms = await PropertyBranch.aggregate([
+         { $unwind: "$rooms" },
+   
+         {
+           $match: {
+             "rooms.toPublish.status": true,
+             "rooms.verified": true,
+             "rooms.city": cityRegex,
+           },
+         },
+   
+         {
+           $lookup: {
+             from: "propertybranches",
+             localField: "rooms.branch",
+             foreignField: "_id",
+             as: "branchData",
+           },
+         },
+         { $unwind: "$branchData" },
+   
+         {
+           $project: {
+             _id: "$rooms._id",
+             category: "$rooms.category",
+             allowedFor: "$rooms.allowedFor",
+             verified: "$rooms.verified",
+             vacant: "$rooms.vacant",
+             price: "$rooms.price",
+             type: "$rooms.type",
+             flattype: "$rooms.flattype",
+             furnishedType: "$rooms.furnishedType",
+             roomImages: "$rooms.roomImages",
+             personalreview: "$rooms.personalreview",
+             branch: {
+               name: "$branchData.name",
+               address: "$branchData.address",
+               Propertyphoto: "$branchData.Propertyphoto",
+             },
+           },
+         },
+   
+         // ✅ LIMIT TO 20 ROOMS
+         { $limit: 20 },
+       ]);
+       console.log(allrooms)
 
-    const availableRooms = allBranches.flatMap(branch =>
-      branch.rooms.filter(room => room.city && cityRegex.test(room.city))
-    );
-
-    return res.status(200).json({ success: true, data: availableRooms });
+    return res.status(200).json({ success: true, data: allrooms });
   } catch (error) {
     console.error("AppliedFilters Error:", error);
     return res.status(500).json({ success: false, message: "Server error", error: error.message });

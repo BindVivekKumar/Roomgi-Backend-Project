@@ -177,10 +177,11 @@ exports.getdetails = async (req, res) => {
     const room = foundBranch.rooms.find(r => r._id.toString() === id);
     if (!room) return res.status(404).json({ success: false, message: "Room not found" });
 
-    const cacheKey = `room-${foundBranch._id}-getdetails`;
-    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room,foundBranch.address));
 
-    return res.status(200).json({ success: true, message: "Room details fetched successfully", room,roomz:foundBranch.address });
+    const cacheKey = `room-${foundBranch._id}-getdetails`;
+    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room,foundBranch.location));
+
+    return res.status(200).json({ success: true, message: "Room details fetched successfully", room,location:foundBranch.location });
   } catch (error) {
     console.error("getdetails Error:", error);
     return res.status(500).json({ success: false, message: "Server error", error: error.message });
