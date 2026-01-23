@@ -90,3 +90,61 @@ exports.deleteComplaint = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+exports.getTenantComplaints = async (req, res) => {
+  try {
+    const tenantId = req.user._id;
+    let { cursor, limit = 10 } = req.query;
+    const parsedLimit = parseInt(limit);
+
+    // 🔥 FIX 1: "null" string ko handle karna
+    // Agar cursor string "null", "undefined" ya khali hai, toh use undefined kar do
+    if (cursor === "null" || cursor === "undefined" || !cursor) {
+      cursor = null;
+    }
+
+    // Dynamic Cache Key
+    const cacheKey = `tenantComplaints:${tenantId}:${cursor || 'start'}:${parsedLimit}`;
+
+    if (redisClient) {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) return res.json({ success: true, ...JSON.parse(cached), source: "cache" });
+    }
+
+    // 🔥 FIX 2: Valid ObjectId Check
+    const query = { tenantId };
+    if (cursor) {
+      if (mongoose.Types.ObjectId.isValid(cursor)) {
+        query._id = { $lt: cursor };
+      } else {
+        // Agar cursor invalid format mein hai, toh error dene ki bajaye initial load kar do 
+        // ya return error karo:
+        return res.status(400).json({ success: false, message: "Invalid cursor format" });
+      }
+    }
+
+    const complaints = await Complaint.find(query)
+      .sort({ _id: -1 }) // Latest first
+      .limit(parsedLimit)
+      .populate("branchId", "name"); // Optional: Branch ka naam dikhane ke liye
+
+    const nextCursor = complaints.length === parsedLimit 
+      ? complaints[complaints.length - 1]._id 
+      : null;
+
+    const response = { 
+      data: complaints, 
+      nextCursor, 
+      hasMore: !!nextCursor,
+      count: complaints.length 
+    };
+
+    if (redisClient) {
+      await redisClient.setEx(cacheKey, 600, JSON.stringify(response));
+    }
+
+    res.json({ success: true, ...response, source: "db" });
+  } catch (err) {
+    console.error("Error in getTenantComplaints:", err);
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+};

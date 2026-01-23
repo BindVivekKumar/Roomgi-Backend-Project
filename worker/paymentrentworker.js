@@ -2,7 +2,7 @@ const { Worker } = require("bullmq");
 const mongoose = require("mongoose");
 
 
-const Tenant = require("../model/branchmanager/tenants");
+const Tenant = require("../model/owner/tenants");
 const Payment = require("../model/payment");
 const redis = require("../utils/a");
 

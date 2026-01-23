@@ -1,7 +1,7 @@
 
 const Payment = require("../../model/payment")
 const PropertyBranch = require("../../model/owner/propertyBranch")
-const Tenant = require("../../model/branchmanager/tenants")
+const Tenant = require("../../model/owner/tenants")
 
 const mongoose = require("mongoose");
 

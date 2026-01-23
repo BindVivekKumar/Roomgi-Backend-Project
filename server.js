@@ -69,7 +69,7 @@ app.use("/api/room/owner", require("./router/owner/room"));
 app.use("/api/payment/owner", require("./router/owner/payment")); 
  app.use("/api/complain/owner", require("./router/owner/complaints"));
  app.use("/api/tenant/owner", require("./router/owner/tenant"));
-  app.use("/api/property", require("./router/owner/property"));
+
 
 //user
 

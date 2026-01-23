@@ -4,7 +4,7 @@ const { Validate } = require("../../middleware/uservalidate");
 
 const {
   AddTenants, MarkTenantInactive, AddRentTenants,
-  GetTenantById, GetTenantsByBranch, calculatePending, UpdateTenant, getAllActiveTenant,
+  GetTenantById, calculatePending, UpdateTenant, getAllActiveTenant,
   BookingDetails,
   GetTenantRentHistory, getAllActiveTenantByBranch, GetTenantsByBranchId, getAlltenantbyStatus
 } = require("../../controller/owner/tenant");
@@ -32,7 +32,7 @@ router.get("/allstatus/:status", Validate, getAlltenantbyStatus);
 router.post("/markinctive/:id",Validate, MarkTenantInactive)
 router.post("/AddRentTenants/:tenantId", Validate, AddRentTenants)
 
-router.get("/GetTenantsByBranch", Validate, GetTenantsByBranch)
+// router.get("/GetTenantsByBranch", Validate, GetTenantsByBranch)
 
 
 module.exports = router;

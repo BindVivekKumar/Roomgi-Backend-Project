@@ -5,7 +5,7 @@ const sendmailpaymentsuccess = require("../template/sendotpmail");
 
 const Booking = require("../model/user/booking");
 const PropertyBranch = require("../model/owner/propertyBranch");
-const Tenant = require("../model/branchmanager/tenants");
+const Tenant = require("../model/owner/tenants");
 const Payment = require("../model/payment");
 const redis = require("../utils/a");
 

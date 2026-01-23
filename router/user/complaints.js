@@ -14,7 +14,7 @@ console.log("🚀 Complaint Routes Initialized");
 // 2. Create Complaint
 router.post("/create", Validate, complaintController.createComplaint);
 router.delete("/:complaintId", Validate, complaintController.deleteComplaint);
-
+router.get("/get", Validate, complaintController.getTenantComplaints);
 
 module.exports = router;
 

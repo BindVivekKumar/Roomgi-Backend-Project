@@ -2,8 +2,8 @@
 
 const Payment = require("../../model/payment")
 const PropertyBranch = require("../../model/owner/propertyBranch")
-const Expense = require("../../model/branchmanager/expenses")
-const Tenant = require("../../model/branchmanager/tenants")
+const Expense = require("../../model/owner/expenses")
+const Tenant = require("../../model/owner/tenants")
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const Signup = require("../../model/user")

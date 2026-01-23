@@ -1,5 +1,5 @@
 const { Worker } = require("bullmq");
-const Tenant = require("../model/branchmanager/tenants");
+const Tenant = require("../model/owner/tenants");
 const redis = require("../utils/a");
 
 const worker = new Worker(

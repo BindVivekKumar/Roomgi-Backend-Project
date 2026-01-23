@@ -1,12 +1,11 @@
 
 
-const Tenant = require("../../model/branchmanager/tenants")
+const Tenant = require("../../model/owner/tenants")
 const Payment = require("../../model/payment")
 const PropertyBranch = require("../../model/owner/propertyBranch")
 const redisClient = require("../../utils/redis");
 const bcrypt = require("bcrypt")
 const Signup = require("../../model/user")
-const branchmanager = require("../../model/owner/branchmanager")
 
 
 const Booking = require("../../model/user/booking")
@@ -494,53 +493,53 @@ exports.GetTenantsByBranchId = async (req, res) => {
 // ------------------------------
 // Get All Tenants for a Branch Manager
 // ------------------------------
-exports.GetTenantsByBranch = async (req, res) => {
-    try {
-        const branchManagerId = req.user._id;
-        const cachedKey = `tenant-branchManager-${branchManagerId}`;
+// exports.GetTenantsByBranch = async (req, res) => {
+//     try {
+//         const branchManagerId = req.user._id;
+//         const cachedKey = `tenant-branchManager-${branchManagerId}`;
 
-        // 1️⃣ Check Redis cache first
-        const cachedData = await redisClient.get(cachedKey);
-        if (cachedData) {
-            return res.status(200).json({
-                success: true,
-                message: "Tenant details fetched from cache",
-                tenants: JSON.parse(cachedData),
-            });
-        }
+//         // 1️⃣ Check Redis cache first
+//         const cachedData = await redisClient.get(cachedKey);
+//         if (cachedData) {
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "Tenant details fetched from cache",
+//                 tenants: JSON.parse(cachedData),
+//             });
+//         }
 
-        // 2️⃣ Get all branches for this branch manager
-        const branches = await branchmanager.findOne({email:req.user.email} )
-        if (!branches.length) {
-            return res.status(200).json({
-                success: true,
-                message: "No properties found for this branch manager",
-                tenants: [],
-            });
-        }
+//         // 2️⃣ Get all branches for this branch manager
+//         const branches = await propertyBranch.find({email:req.user.email} )
+//         if (!branches.length) {
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "No properties found for this branch manager",
+//                 tenants: [],
+//             });
+//         }
 
-        // 3️⃣ Fetch all tenants in one query
-        const branchIds = branches.map(branch => branch._id);
-        const tenants = await Tenant.find({ branch: { $in: branchIds } });
+//         // 3️⃣ Fetch all tenants in one query
+//         const branchIds = branches.map(branch => branch._id);
+//         const tenants = await Tenant.find({ branch: { $in: branchIds } });
 
-        // 4️⃣ Cache result in Redis (1 hour)
-        await redisClient.set(cachedKey, JSON.stringify(tenants), { EX: 3600 });
+//         // 4️⃣ Cache result in Redis (1 hour)
+//         await redisClient.set(cachedKey, JSON.stringify(tenants), { EX: 3600 });
 
-        return res.status(200).json({
-            success: true,
-            message: "All tenants fetched successfully",
-            tenants: tenants,
-        });
+//         return res.status(200).json({
+//             success: true,
+//             message: "All tenants fetched successfully",
+//             tenants: tenants,
+//         });
 
-    } catch (error) {
-        console.error("GetTenantsByBranch Error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Server Error",
-            error: error.message,
-        });
-    }
-};
+//     } catch (error) {
+//         console.error("GetTenantsByBranch Error:", error);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Server Error",
+//             error: error.message,
+//         });
+//     }
+// };
 
 // ------------------------------
 // Calculate Pending Dues for a Tenant
