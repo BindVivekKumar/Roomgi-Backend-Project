@@ -186,7 +186,7 @@ exports.DeleteBranch = async (req, res) => {
     await foundBranch.deleteOne();
 
     if (redisClient) {
-      const patterns = ["branches-*", `room-${branchId}*`, "rooms-all", `branchManagerComplaints-${branchId}`, `branchComplaints-${branchId}`];
+      const patterns = ["branches-*", `room-${id}*`, "rooms-all", `branchManagerComplaints-${branchId}`, `branchComplaints-${branchId}`];
       const pipeline = redisClient.pipeline();
       for (const pattern of patterns) {
         const keys = await redisClient.keys(pattern);
