@@ -17,12 +17,7 @@ exports.getAllPg = async (req, res) => {
     const allrooms = await PropertyBranch.aggregate([
       { $unwind: "$rooms" },
 
-      {
-        $match: {
-          "rooms.toPublish.status": true,
-          "rooms.verified": true,
-        },
-      },
+     
 
       {
         $lookup: {
