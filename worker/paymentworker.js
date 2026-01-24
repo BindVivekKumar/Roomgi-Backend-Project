@@ -1,14 +1,12 @@
 const { Worker } = require("bullmq");
 const Razorpay = require("razorpay");
 const mongoose = require("mongoose");
-
 const sendmailpaymentsuccess = require("../template/sendotpmail");
 
 const Booking = require("../model/user/booking");
 const PropertyBranch = require("../model/owner/propertyBranch");
 const Tenant = require("../model/owner/tenants");
 const Payment = require("../model/payment");
-
 const redis = require("../utils/a");
 
 const razorpay = new Razorpay({
@@ -19,39 +17,31 @@ const razorpay = new Razorpay({
 const paymentWorker = new Worker(
   "paymentQueue",
   async (job) => {
+ 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
       const { razorpay_payment_id, razorpay_order_id } = job.data;
 
-      if (!razorpay_payment_id || !razorpay_order_id) {
-        throw new Error("Invalid job payload");
-      }
+      console.log("Job Data:", { razorpay_payment_id, razorpay_order_id });
 
-      console.log("🧾 Job Data:", job.data);
-
-      /* ---------- IDEMPOTENCY ---------- */
-      const alreadyProcessed = await Payment.findOne({
-        razorpay_payment_id,
-      }).session(session);
-
+      /* ---------- IDEMPOTENCY: PAYMENT ---------- */
+      const alreadyProcessed = await Payment.findOne({ razorpay_payment_id }).session(session);
       if (alreadyProcessed) {
-        console.log("⚠️ Payment already processed:", razorpay_payment_id);
+        console.log("⚠️ Payment already processed. Skipping:", razorpay_payment_id);
         await session.abortTransaction();
         return;
       }
 
-      /* ---------- FETCH PAYMENT ---------- */
-      const payment = await razorpay.payments.fetch(
-        razorpay_payment_id
-      );
+      /* ---------- FETCH PAYMENT FROM RAZORPAY ---------- */
+      const payment = await razorpay.payments.fetch(razorpay_payment_id);
 
       if (payment.status !== "captured") {
         throw new Error("Payment not captured");
       }
 
-      console.log("✅ Payment captured");
+      console.log("✅ Payment is captured");
 
       /* ---------- FETCH BOOKING ---------- */
       const booking = await Booking.findOne({
@@ -62,10 +52,7 @@ const paymentWorker = new Worker(
       if (!booking) throw new Error("Booking not found");
 
       /* ---------- FETCH BRANCH ---------- */
-      const branch = await PropertyBranch.findById(
-        booking.branch
-      ).session(session);
-
+      const branch = await PropertyBranch.findById(booking.branch).session(session);
       if (!branch) throw new Error("Branch not found");
 
       /* ---------- FIND ROOM ---------- */
@@ -83,14 +70,19 @@ const paymentWorker = new Worker(
       }).session(session);
 
       if (!tenant) {
-        [tenant] = await Tenant.create(
+        const createdTenant = await Tenant.create(
           [
             {
               branch: branch._id,
               tenantId: booking.userId,
               roomNumber: room.roomNumber,
               securityDeposit: booking.securityDeposit,
-              rent: room.price,
+              advanced: room.price,
+              rent:
+                room.price ||
+                room.rentperday ||
+                room.rentperNight ||
+                room.rentperhour,
               email: booking.email,
               name: booking.username,
             },
@@ -98,13 +90,16 @@ const paymentWorker = new Worker(
           { session }
         );
 
+        tenant = createdTenant[0];
+
+        /* ---------- UPDATE ROOM OCCUPANCY ---------- */
         room.occupied = (room.occupied || 0) + 1;
         branch.markModified("rooms");
         await branch.save({ session });
       }
 
       /* ---------- CREATE PAYMENT RECORD ---------- */
-      await Payment.create(
+      const paymentdone =await Payment.create(
         [
           {
             tenantId: tenant._id,
@@ -128,7 +123,7 @@ const paymentWorker = new Worker(
 
       /* ---------- UPDATE BOOKING ---------- */
       booking.status = "paid";
-      booking.tenantId = tenant._id;
+      booking.tenantId=tenant._id;
       await booking.save({ session });
 
       /* ---------- CLEAR CACHE ---------- */
@@ -140,26 +135,18 @@ const paymentWorker = new Worker(
 
       await session.commitTransaction();
 
-      /* ---------- SEND MAIL ---------- */
+      /* ---------- SEND MAIL (SAFE) ---------- */
       try {
-        await sendmailpaymentsuccess(
-          booking.email,
-          booking.username,
-          branch.name,
-          room.roomNumber,
-          booking.amount.totalAmount,
-          booking._id,
-          booking._id
-        );
+        await sendmailpaymentsuccess(booking.email, booking.username,branch.name,room.roomNumber, booking.amount.totalAmount, booking._id,booking._id);
       } catch (mailErr) {
-        console.error("📧 Mail failed:", mailErr.message);
+        console.error("❌ Mail failed but payment is safe:", mailErr.message);
       }
 
-      console.log("🚀 Payment processed:", razorpay_payment_id);
-    } catch (err) {
+      console.log("🚀 Payment processing completed:", razorpay_payment_id);
+    } catch (error) {
       await session.abortTransaction();
-      console.error("❌ Worker error:", err.message);
-      throw err;
+      console.error("❌ Worker error:", error.message);
+      throw error;
     } finally {
       session.endSession();
       console.log("🛑 Session ended:", job.id);
