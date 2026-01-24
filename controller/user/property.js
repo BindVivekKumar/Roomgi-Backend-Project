@@ -45,8 +45,9 @@ exports.getAllPg = async (req, res) => {
           type: "$rooms.type",
           flattype: "$rooms.flattype",
           furnishedType: "$rooms.furnishedType",
-          roomImages: "$rooms.roomImages",
+          roomImages:  { $arrayElemAt: ["$rooms.roomImages", 0] },
           personalreview: "$rooms.personalreview",
+          services:"$rooms.services",
           branch: {
             name: "$branchData.name",
             address: "$branchData.address",
