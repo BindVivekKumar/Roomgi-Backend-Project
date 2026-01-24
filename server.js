@@ -7,6 +7,11 @@ const compression = require("compression");
 
 dotenv.config();
 const app = express();
+app.use(
+  "/api/payment",
+  webhookRouter
+);
+
 
 /* =======================
    ⚡ SPEED + SECURITY MIDDLEWARES
@@ -42,10 +47,6 @@ app.use(
 const webhookRouter = require("./router/webhook");
 
 // 🔥 CORRECT WAY
-app.use(
-  "/api/payment",
-  webhookRouter
-);
 
 /* =======================
    ❤️ HEALTH CHECK
