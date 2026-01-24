@@ -89,7 +89,7 @@ exports.AppliedAllFilters = async (req, res) => {
     const rooms = await PropertyBranch.aggregate([
       { $unwind: "$rooms" },
 
-      { $match: matchConditions },
+     
 
       // 🔗 Join Branch info
       {
