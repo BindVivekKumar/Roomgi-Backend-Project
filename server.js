@@ -42,7 +42,7 @@ app.use(
 const webhookRouter = require("./router/webhook");
 
 app.post(
-  "/api/razorpay/payment",
+  "/api/payment",
   express.raw({ type: "application/json" }),
   webhookRouter
 );
