@@ -121,7 +121,7 @@ exports.AppliedAllFilters = async (req, res) => {
           roomImages: "$rooms.roomImages",
           personalreview: "$rooms.personalreview",
           verified: "$rooms.verified",
-   services:"$rooms.services",
+           services:"$rooms.services",
           branch: {
             name: "$branchData.name",
             address: "$branchData.address",

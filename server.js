@@ -41,9 +41,9 @@ app.use(
 ======================= */
 const webhookRouter = require("./router/webhook");
 
-app.post(
+// 🔥 CORRECT WAY
+app.use(
   "/api/payment",
-  express.raw({ type: "application/json" }),
   webhookRouter
 );
 
