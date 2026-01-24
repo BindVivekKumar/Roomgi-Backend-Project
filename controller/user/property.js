@@ -43,6 +43,7 @@ exports.getAllPg = async (req, res) => {
           roomImages:  { $arrayElemAt: ["$rooms.roomImages", 0] },
           personalreview: "$rooms.personalreview",
           services:"$rooms.services",
+          availabilityStatus:"$rooms.availabilityStatus",
           branch: {
             name: "$branchData.name",
             address: "$branchData.address",
