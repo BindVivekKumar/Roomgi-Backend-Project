@@ -3,29 +3,24 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const compression = require("compression");
 
 dotenv.config();
-
 const app = express();
 
 /* =======================
-   🔥 RAZORPAY WEBHOOK (RAW BODY)
-   MUST BE BEFORE express.json()
+   ⚡ SPEED + SECURITY MIDDLEWARES
 ======================= */
-const webhookRouter = require("./router/webhook");
+app.use(compression({ threshold: 1024 })); // 1KB se bade responses zip honge
 
-app.post(
-  "/api/razorpay/payment",
-  express.raw({ type: "application/json" }),
-  webhookRouter
-);
-
-/* =======================
-   NORMAL MIDDLEWARES
-======================= */
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
+
+app.use((req, res, next) => {
+  res.setHeader("X-Powered-By", "Roomgi");
+  next();
+});
 
 app.use(
   cors({
@@ -41,7 +36,19 @@ app.use(
 );
 
 /* =======================
-   ❤️ HEALTH CHECK (UPTIME ROBOT)
+   🔥 RAZORPAY WEBHOOK (RAW BODY)
+   MUST BE BEFORE express.json()
+======================= */
+const webhookRouter = require("./router/webhook");
+
+app.post(
+  "/api/razorpay/payment",
+  express.raw({ type: "application/json" }),
+  webhookRouter
+);
+
+/* =======================
+   ❤️ HEALTH CHECK
 ======================= */
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -56,56 +63,27 @@ app.get("/health", (req, res) => {
    ROUTERS
 ======================= */
 
-
-
-
-
-
-//owner
-
-
+// owner
 app.use("/api/branch/owner", require("./router/owner/branch"));
 app.use("/api/room/owner", require("./router/owner/room"));
-app.use("/api/payment/owner", require("./router/owner/payment")); 
- app.use("/api/complain/owner", require("./router/owner/complaints"));
- app.use("/api/tenant/owner", require("./router/owner/tenant"));
+app.use("/api/payment/owner", require("./router/owner/payment"));
+app.use("/api/complain/owner", require("./router/owner/complaints"));
+app.use("/api/tenant/owner", require("./router/owner/tenant"));
 
-
-//user
-
-app.use("/api/payment/user", require("./router/user/payment")); 
+// user
+app.use("/api/payment/user", require("./router/user/payment"));
 app.use("/api/complain/user", require("./router/user/complaints"));
 app.use("/api/review/user", require("./router/user/review"));
 app.use("/api/filter/user", require("./router/user/filter"));
 app.use("/api/property/user", require("./router/user/property"));
 
+// admin
+app.use("/api/admin/certificate", require("./router/owner/certificate"));
+app.use("/api/property/admin", require("./router/admin/pg_details"));
 
-
-
-
-
-//admin
-app.use("/api/admin/certificate",require("./router/owner/certificate"))
-
-app.use("/api/property/admin",require("./router/admin/pg_details"))
-
-
-
-
-
-//common
+// common
 app.use("/api/v1/user", require("./router/user"));
-
-
-
-
 app.use("/api/user/property", require("./router/user/property"));
-
-
-
-
-
-
 
 /* =======================
    DATABASE + STARTUP
@@ -113,7 +91,12 @@ app.use("/api/user/property", require("./router/user/property"));
 const PORT = process.env.PORT || 5000;
 
 mongoose
-  .connect(process.env. MONGODB_URL)
+  .connect(process.env.MONGODB_URL, {
+    maxPoolSize: 10,
+    minPoolSize: 2,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+  })
   .then(() => {
     console.log("✅ Database connected");
 
@@ -146,14 +129,14 @@ mongoose
   });
 
 /* =======================
-   🧠 GRACEFUL SHUTDOWN (OPTIONAL BUT RECOMMENDED)
+   🧠 GRACEFUL SHUTDOWN
 ======================= */
 process.on("SIGTERM", () => {
-  console.log("🛑 SIGTERM received. Shutting down gracefully...");
+  console.log("🛑 SIGTERM received. Shutting down...");
   process.exit(0);
 });
 
 process.on("SIGINT", () => {
-  console.log("🛑 SIGINT received. Shutting down gracefully...");
+  console.log("🛑 SIGINT received. Shutting down...");
   process.exit(0);
 });
