@@ -77,7 +77,7 @@ const paymentWorker = new Worker(
               tenantId: booking.userId,
               roomNumber: room.roomNumber,
               securityDeposit: booking.securityDeposit,
-              rent: room.price,
+              rent: room.price || 0,
               email: booking.email,
               name: booking.username,
             },
