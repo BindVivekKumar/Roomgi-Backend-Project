@@ -4,6 +4,8 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const compression = require("compression");
+const webhookRouter = require("./router/webhook");
+
 
 dotenv.config();
 const app = express();
@@ -44,7 +46,6 @@ app.use(
    🔥 RAZORPAY WEBHOOK (RAW BODY)
    MUST BE BEFORE express.json()
 ======================= */
-const webhookRouter = require("./router/webhook");
 
 // 🔥 CORRECT WAY
 
