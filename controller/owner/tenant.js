@@ -595,13 +595,13 @@ exports.BookingDetails = async (req, res) => {
             console.warn("Redis fetch error:", err.message);
         }
 
-        if (cached) {
-            return res.status(200).json({
-                success: true,
-                message: "All bookings fetched from cache",
-                bookings: JSON.parse(cached),
-            });
-        }
+        // if (cached) {
+        //     return res.status(200).json({
+        //         success: true,
+        //         message: "All bookings fetched from cache",
+        //         bookings: JSON.parse(cached),
+        //     });
+        // }
 
         // 2️⃣ Fetch bookings from DB
         const userBookings = await Booking.find({ email: req.user.email })
