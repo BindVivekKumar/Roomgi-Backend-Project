@@ -30,14 +30,15 @@ const mongoose = require('mongoose');
 
 
 
-
 exports.AddRoom = async (req, res) => {
   try {
-    let service;
-    if (typeof req.body.services === "string") {
-      service = JSON.parse(req.body.services);
-    } else {
-      service = req.body.services;
+    /* ================= PARSE SERVICES ================= */
+    let service = [];
+    if (req.body.services) {
+      service =
+        typeof req.body.services === "string"
+          ? JSON.parse(req.body.services)
+          : req.body.services;
     }
 
     const userId = req.user._id;
@@ -63,16 +64,18 @@ exports.AddRoom = async (req, res) => {
       roomtype,
       renttype,
       flattype,
-      advancedmonth
+      advancedmonth,
     } = req.body;
 
-    if (!roomNumber || !category) {
+    /* ================= BASIC VALIDATION ================= */
+    if (!roomNumber || !category || !branchid) {
       return res.status(400).json({
         success: false,
-        message: "roomNumber and category are required",
+        message: "roomNumber, category and branch are required",
       });
     }
 
+    /* ================= FIND BRANCH ================= */
     const branch = await propertyBranch.findById(branchid);
     if (!branch) {
       return res.status(404).json({
@@ -81,8 +84,9 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
+    /* ================= CHECK DUPLICATE ROOM ================= */
     const exists = branch.rooms.some(
-      r => Number(r.roomNumber) === Number(roomNumber)
+      (r) => Number(r.roomNumber) === Number(roomNumber)
     );
 
     if (exists) {
@@ -92,21 +96,24 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    const uploadedImages = [];
-    for (const file of imageFiles) {
-      const upload = await Uploadmedia.Uploadmedia(file.path);
-      uploadedImages.push(upload.secure_url);
-    }
+    /* ================= IMAGE UPLOAD (PARALLEL) ================= */
+    const uploadedImages = await Promise.all(
+      imageFiles.map((file) =>
+        Uploadmedia.Uploadmedia(file.path).then((r) => r.secure_url)
+      )
+    );
 
+    /* ================= CAPACITY LOGIC ================= */
     let capacity = 1;
     if (type === "Double") capacity = 2;
     if (type === "Triple") capacity = 3;
 
+    /* ================= CREATE ROOM OBJECT ================= */
     const newRoom = {
       roomNumber: Number(roomNumber),
       category,
       city: branch.city,
-      services: service || [],
+      services: service,
 
       type: category === "Pg" ? type : undefined,
       price: category !== "Hotel" ? price : undefined,
@@ -123,8 +130,18 @@ exports.AddRoom = async (req, res) => {
       allowedFor: allowedFor || "Anyone",
       furnishedType: furnishedType || "Semi Furnished",
 
-      facilities: Array.isArray(facilities) ? facilities : facilities ? [facilities] : [],
-      notAllowed: Array.isArray(notAllowed) ? notAllowed : notAllowed ? [notAllowed] : [],
+      facilities: Array.isArray(facilities)
+        ? facilities
+        : facilities
+        ? [facilities]
+        : [],
+
+      notAllowed: Array.isArray(notAllowed)
+        ? notAllowed
+        : notAllowed
+        ? [notAllowed]
+        : [],
+
       rules: Array.isArray(rules) ? rules : rules ? [rules] : [],
 
       availabilityStatus: availabilityStatus || "Available",
@@ -136,24 +153,45 @@ exports.AddRoom = async (req, res) => {
       createdBy: userId,
       branch: branch._id,
       roomImages: uploadedImages,
+
+      description: description || "", // temporary
     };
 
-    // 🔥 AI DESCRIPTION
-    const aiDescription = await generateRoomDescription({ newRoom, branch });
-    newRoom.description = aiDescription || description || "";
-
+    /* ================= SAVE ROOM FAST ================= */
     branch.rooms.push(newRoom);
     await branch.save();
 
+    /* ================= BACKGROUND TASKS ================= */
 
-    await sendaddroommail(req.user.email,req.user.username,roomNumber,branch.name,category,capacity)
+    // 🔥 AI Description (NON-BLOCKING)
+    generateRoomDescription({ newRoom, branch })
+      .then((aiDesc) => {
+        if (aiDesc) {
+          const room = branch.rooms.id(newRoom._id);
+          if (room) {
+            room.description = aiDesc;
+            branch.save();
+          }
+        }
+      })
+      .catch(console.error);
 
+    // 📧 Email (NON-BLOCKING)
+    sendaddroommail(
+      req.user.email,
+      req.user.username,
+      roomNumber,
+      branch.name,
+      category,
+      capacity
+    ).catch(console.error);
+
+    /* ================= RESPONSE ================= */
     return res.status(201).json({
       success: true,
       message: "Room added successfully",
       room: newRoom,
     });
-
   } catch (error) {
     console.error("AddRoom Error:", error);
     return res.status(500).json({
