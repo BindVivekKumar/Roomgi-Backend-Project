@@ -4,7 +4,7 @@ const sendaddroommail=require("../../template/roomadd.js")
 const sendDeleteRoomMail=require("../../template/deleteroom.js")
 const Uploadmedia = require("../../utils/cloudinary.js")
 const deletemedia = require("../../utils/cloudinary.js")
-
+const {emailQueue}= require("../../queue")
 const { generateRoomDescription } = require("../../prompts/aiDescription");
 
 
@@ -254,7 +254,7 @@ exports.DeleteRoom = async (req, res) => {
     const userId = req.user._id;
 
     // 1️⃣ Find the branch containing this room
-    const foundBranch = await PropertyBranch.findOne({ "rooms._id": id });
+    const foundBranch = await propertyBranch.findOne({ "rooms._id": id });
     if (!foundBranch)
       return res.status(400).json({ success: false, message: "Branch not found for this room" });
 
@@ -406,7 +406,7 @@ exports.UpdateRoom = async (req, res) => {
   try {
     const { Id } = req.params;
     const updateData = req.body;
-    const foundBranch = await PropertyBranch.findOne({ "rooms._id": Id });
+    const foundBranch = await propertyBranch.findOne({ "rooms._id": Id });
     if (!foundBranch) return res.status(400).json({ success: false, message: "Branch not found for this room" });
 
     const room = foundBranch.rooms.id(Id);

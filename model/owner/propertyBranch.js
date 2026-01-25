@@ -1,292 +1,313 @@
 const mongoose = require("mongoose");
 
-const RoomSchema = new mongoose.Schema({
-    roomNumber: Number,
-    capacity: Number,
-    occupied: {
-        type: Number,
-        default: 0,
-    },
-    totalrating: {
-        type: Number,
-        default: 0
-    },
-    ratingcount: {
-        type: Number,
-        default: 0
-    },
-    personalreview: [{
+/* =========================
+   ROOM SCHEMA
+========================= */
+
+const RoomSchema = new mongoose.Schema(
+  {
+    roomNumber: { type: Number },
+
+    capacity: { type: Number, default: 1 },
+
+    occupied: { type: Number, default: 0 },
+
+    totalrating: { type: Number, default: 0 },
+    ratingcount: { type: Number, default: 0 },
+
+    personalreview: [
+      {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Review",
-        default: []   // 🔥 VERY IMPORTANT
-    }]
-    ,
-    advancedmonth: Number,
-
-
-    hoteltype: {
-        type: String,
-        enum: [
-            "Standard-Single", "Standard-Double", "Twin-Room", "Triple-Room",
-            "Family-Room", "Deluxe-Room", "Super-Deluxe-Room",
-            "Executive-Room", "Suite"
-        ],
-    },
-    flattype: {
-        type: String,
-        enum: ["1Rk", "1BHK", "2BHK", "3BHK", "4BHK", "5BHK"],
-    },
-    roomtype: {
-        type: String,
-        enum: ["Single", "Double", "Triple"]
-    },
-    renttype: {
-        type: String,
-        enum: ["Flat-Rent", "Room-Rent"]
-    },
-    type: {
-        type: String,
-        enum: ["Single", "Double", "Triple"],
-    },
-    occupiedRentalRoom: {
-        type: Number,
-        default: 0,
-    },
-    occupiedhotelroom: {
-        type: Number,
-        default: 0,
-    },
-    city: {
-        type: String,
-        index: true  // 🔥 fast room search by city
-    },
-
-    count: {
-        type: Number,
-        default: 0,
-    },
-    services:[
-        {
-            price:{
-                type:Number
-            },
-            name:{
-                type:String
-            },
-        }
+        default: [],
+      },
     ],
 
-    verified: {
-        type: Boolean,
-        default: false,
-        index: true   // 🔥 filter verified rooms
-    },
-
-    description: {
-        type: String,
-        default: ""
-    },
-    comment: {
-        type: String,
-        default: ""
-    },
-
-    notAllowed: [
-        {
-            type: String,
-            enum: ["Smoking", "Alcohol", "Pets", "Visitors", "Loud Music"]
-        }
-    ],
-
-    rules: [
-        {
-            type: String,
-            enum: [
-                "Timings",
-                "No noise",
-                "Keep clean",
-                "Keep room clean",
-                "No loud music",
-                "Maintain hygiene",
-                "No outside guests",
-                "Respect timings"
-            ]
-        }
-    ],
-
-    allowedFor: {
-        type: String,
-        enum: ["Boys", "Girls", "Family", "Anyone"],
-        default: "Anyone",
-        index: true  // 🔥 gender-based room filtering
-    },
-
-    furnishedType: {
-        type: String,
-        enum: ["Fully Furnished", "Semi Furnished", "Unfurnished"],
-        index: true
-    },
-
-    vacant: {
-        type: Number,
-        default: 0,
-        index: true
-    },
-
-    availabilityStatus: {
-        type: String,
-        enum: ["Available", "Occupied"],
-        default: "Available",
-        index: true
-    },
-
-    toPublish: {
-        status: { type: Boolean, default: false, index: true },
-        date: { type: Date },
-    },
-
-    price: {
-        type: Number,
-        index: true  // 🔥 price filtering
-    },
+    /* ===== PRICING ===== */
+    price: { type: Number, index: true },
+    advancedmonth: { type: Number },
 
     rentperday: Number,
     rentperhour: Number,
     rentperNight: Number,
 
+    /* ===== CATEGORY ===== */
     category: {
-        type: String,
-        enum: ["Pg", "Rented-Room", "Hotel"],
-        default: "Pg",
-        index: true // 🔥 filter for Pg / Rooms / Hotels
+      type: String,
+      enum: ["Pg", "Rented-Room", "Hotel"],
+      default: "Pg",
+      index: true,
     },
 
+    /* ===== TYPES (ENUM SAFE) ===== */
+    hoteltype: {
+      type: String,
+      enum: [
+        "Standard-Single",
+        "Standard-Double",
+        "Twin-Room",
+        "Triple-Room",
+        "Family-Room",
+        "Deluxe-Room",
+        "Super-Deluxe-Room",
+        "Executive-Room",
+        "Suite",
+      ],
+      required: false,
+    },
+
+    flattype: {
+      type: String,
+      enum: ["1Rk", "1BHK", "2BHK", "3BHK", "4BHK", "5BHK"],
+      required: false,
+    },
+
+    roomtype: {
+      type: String,
+      enum: ["Single", "Double", "Triple"],
+      required: false,
+    },
+
+    renttype: {
+      type: String,
+      enum: ["Flat-Rent", "Room-Rent"],
+      required: false,
+    },
+
+    type: {
+      type: String,
+      enum: ["Single", "Double", "Triple"],
+      required: false,
+    },
+
+    /* ===== OCCUPANCY ===== */
+    vacant: { type: Number, default: 0, index: true },
+    occupiedRentalRoom: { type: Number, default: 0 },
+    occupiedhotelroom: { type: Number, default: 0 },
+
+    availabilityStatus: {
+      type: String,
+      enum: ["Available", "Occupied"],
+      default: "Available",
+      index: true,
+    },
+
+    /* ===== LOCATION ===== */
+    city: { type: String, index: true },
+
+    /* ===== SERVICES ===== */
+    services: [
+      {
+        name: { type: String },
+        price: { type: Number },
+      },
+    ],
+
+    /* ===== RULES & RESTRICTIONS ===== */
+    rules: [
+      {
+        type: String,
+        enum: [
+          "Timings",
+          "No noise",
+          "Keep clean",
+          "Keep room clean",
+          "No loud music",
+          "Maintain hygiene",
+          "No outside guests",
+          "Respect timings",
+        ],
+      },
+    ],
+
+    notAllowed: [
+      {
+        type: String,
+        enum: ["Smoking", "Alcohol", "Pets", "Visitors", "Loud Music"],
+      },
+    ],
+
+    /* ===== META ===== */
+    allowedFor: {
+      type: String,
+      enum: ["Boys", "Girls", "Family", "Anyone"],
+      default: "Anyone",
+      index: true,
+    },
+
+    furnishedType: {
+      type: String,
+      enum: ["Fully Furnished", "Semi Furnished", "Unfurnished"],
+      index: true,
+    },
+
+    verified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    description: { type: String, default: "" },
+    comment: { type: String, default: "" },
+
+    toPublish: {
+      status: { type: Boolean, default: false, index: true },
+      date: { type: Date },
+    },
+
+    /* ===== RELATION ===== */
     createdBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "branchmanager",
-        index: true
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "branchmanager",
+      index: true,
     },
 
     branch: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "PropertyBranch",
-        index: true  // 🔥 fast branch-wise rooms
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PropertyBranch",
+      index: true,
     },
-
 
     roomImages: [{ type: String }],
 
     facilities: [
-        {
-            type: String,
-            enum: [
-                "AC", "Non-AC", "Bathroom", "WiFi", "Power Backup",
-                "Laundry", "CCTV", "Parking", "Refrigerator", "24x7 Electricity",
-            ]
-        }
-    ]
+      {
+        type: String,
+        enum: [
+          "AC",
+          "Non-AC",
+          "Bathroom",
+          "WiFi",
+          "Power Backup",
+          "Laundry",
+          "CCTV",
+          "Parking",
+          "Refrigerator",
+          "24x7 Electricity",
+        ],
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+/* =========================
+   ENUM CLEANER (VERY IMPORTANT)
+========================= */
+
+RoomSchema.pre("validate", function (next) {
+  const enumFields = [
+    "hoteltype",
+    "flattype",
+    "roomtype",
+    "renttype",
+    "type",
+  ];
+
+  enumFields.forEach((field) => {
+    if (this[field] === "" || this[field] === null) {
+      this[field] = undefined;
+    }
+  });
+
+  next();
 });
 
-// ⭐ Composite index: Best for filters
+/* =========================
+   INDEXES
+========================= */
+
 RoomSchema.index({
-    city: 1,
-    category: 1,
-    availabilityStatus: 1,
-    price: 1
+  city: 1,
+  category: 1,
+  availabilityStatus: 1,
+  price: 1,
 });
 
+/* =========================
+   PROPERTY BRANCH SCHEMA
+========================= */
 
-// ------------------- PROPERTY BRANCH SCHEMA -------------------
-
-const propertyBranchSchema = new mongoose.Schema({
-  owner: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "Signup", 
-    required: true, 
-    index: true 
-  },
-
-  branchmanager: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "branchmanager", 
-    index: true 
-  },
-
-  // ===== BASIC INFO =====
-  name: { type: String, required: true, index: true },
-  address: { type: String, required: true, index: true },
-  streetAdress: { type: String },
-  landmark: { type: String },
-
-  // ===== LOCATION HIERARCHY =====
-  state: { type: String, required: true, index: true },
-  city: { type: String, required: true, index: true },
-
-  locationName: { type: String, required: true, index: true }, // <-- ADDED
-
-  pincode: { type: Number, required: true, index: true },
-
-  // ===== GEO LOCATION =====
-  location: {
-    type: {
-      type: String,
-      enum: ["Point"],
-      default: "Point",
+const propertyBranchSchema = new mongoose.Schema(
+  {
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Signup",
+      required: true,
+      index: true,
     },
-    coordinates: { type: [Number] }, // [lng, lat]
+
+    branchmanager: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "branchmanager",
+      index: true,
+    },
+
+    /* ===== BASIC INFO ===== */
+    name: { type: String, required: true, index: true },
+    address: { type: String, required: true, index: true },
+    streetAdress: String,
+    landmark: String,
+
+    /* ===== LOCATION ===== */
+    state: { type: String, required: true, index: true },
+    city: { type: String, required: true, index: true },
+    locationName: { type: String, required: true, index: true },
+    pincode: { type: Number, required: true, index: true },
+
+    location: {
+      type: { type: String, enum: ["Point"], default: "Point" },
+      coordinates: { type: [Number] }, // [lng, lat]
+    },
+
+    lat: Number,
+    long: Number,
+
+    /* ===== COUNTS ===== */
+    totelhotelroom: { type: Number, default: 0 },
+    occupiedhotelroom: { type: Number, default: 0 },
+
+    totalrentalRoom: { type: Number, default: 0 },
+    occupiedRentalRoom: { type: Number, default: 0 },
+
+    totalBeds: { type: Number, default: 0 },
+
+    rooms: [RoomSchema],
+    occupiedRoom: [{ type: Number }],
+
+    roomNumbers: { type: [Number], required: true },
+
+    /* ===== FINANCIAL ===== */
+    advanced: { type: Number, default: 0 },
+    dues: { type: Number, default: 0 },
+    rent: { type: Number, default: 0 },
+
+    /* ===== FACILITIES ===== */
+    facilities: { type: [String] },
+
+    /* ===== STATUS ===== */
+    status: {
+      type: String,
+      enum: ["Active", "InActive", "maintenance", "coming-Soon"],
+      default: "Active",
+      index: true,
+    },
+
+    Propertyphoto: { type: [String] },
   },
+  { timestamps: true }
+);
 
-  lat: { type: Number },
-  long: { type: Number },
-
-  // ===== ROOMS & OCCUPANCY =====
-  totelhotelroom: { type: Number, default: 0 },
-  occupiedhotelroom: { type: Number, default: 0 },
-
-  totalrentalRoom: { type: Number, default: 0 },
-  occupiedRentalRoom: { type: Number, default: 0 },
-
-  totalBeds: { type: Number, default: 0 },
-
-  rooms: [RoomSchema],
-  occupiedRoom: [{ type: Number }],
-
-  roomNumbers: { type: [Number], required: true },
-
-  // ===== FINANCIAL =====
-  advanced: { type: Number, default: 0 },
-  dues: { type: Number, default: 0 },
-  rent: { type: Number, default: 0 },
-
-  // ===== AMENITIES =====
-  facilities: { type: [String] },
-
-  // ===== STATUS =====
-  status: {
-    type: String,
-    enum: ["Active", "InActive", "maintenance", "coming-Soon"],
-    default: "Active",
-    index: true
-  },
-
-  // ===== MEDIA =====
-  Propertyphoto: { type: [String] },
-
-}, { timestamps: true });
-
-
+/* =========================
+   BRANCH INDEXES
+========================= */
 
 propertyBranchSchema.index({ location: "2dsphere" });
-
-
-propertyBranchSchema.index({
-    city: 1,
-    status: 1,
-    owner: 1
-});
-
-
+propertyBranchSchema.index({ city: 1, status: 1, owner: 1 });
 propertyBranchSchema.index({ name: "text", address: "text", city: "text" });
 
+/* =========================
+   EXPORT
+========================= */
 
 module.exports = mongoose.model("PropertyBranch", propertyBranchSchema);

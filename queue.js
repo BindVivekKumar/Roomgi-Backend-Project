@@ -2,16 +2,24 @@
 const { Queue } = require("bullmq");
 const redis = require("./utils/a");
 
+/* ================= QUEUES ================= */
+
 const paymentQueue = new Queue("paymentQueue", { connection: redis });
-const duesQueue = new Queue("dues", { connection: redis });
-const paymentRentQueue = new Queue("adjust-rent", { connection: redis });
-const refundQueue = new Queue("REFUND_PROCESSING", { connection: redis });
-const refundverifyQueue = new Queue("REFUND_VERIFY", { connection: redis });
+const duesQueue = new Queue("duesQueue", { connection: redis });
+const paymentRentQueue = new Queue("adjustRentQueue", { connection: redis });
+const refundQueue = new Queue("refundProcessingQueue", { connection: redis });
+const refundverifyQueue = new Queue("refundVerifyQueue", { connection: redis });
 
+// ✅ EMAIL QUEUE (MISSING PART)
+const emailQueue = new Queue("emailQueue", { connection: redis });
 
+/* ================= EXPORT ================= */
 
-module.exports = { paymentQueue,
-    duesQueue,
-    refundverifyQueue,
-    refundQueue,
-    paymentRentQueue };
+module.exports = {
+  paymentQueue,
+  duesQueue,
+  paymentRentQueue,
+  refundQueue,
+  refundverifyQueue,
+  emailQueue,
+};
