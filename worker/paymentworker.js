@@ -114,6 +114,7 @@ const paymentWorker = new Worker(
 
       booking.status = "paid";
       booking.tenantId = tenant._id;
+      con
       await booking.save({ session });
 
       await session.commitTransaction();

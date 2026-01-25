@@ -12,13 +12,12 @@ const mongoose = require("mongoose");
 
 
 
-
 exports.DasboardBooking = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const { id } = req.params;
 
     /* ---------------- TENANT ---------------- */
-    const tenant = await Tenant.findOne({ tenantId: userId })
+    const tenant = await Tenant.findById(id)
       .select(
         "name email roomNumber status checkInDate startDuesFrom rent advanced securityDeposit duesamount paymentStatus duesmonth duesdays branch"
       )
@@ -48,17 +47,39 @@ exports.DasboardBooking = async (req, res) => {
       (r) => r.roomNumber === tenant.roomNumber
     );
 
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room data missing",
+      });
+    }
+
     /* ---------------- PAYMENTS ---------------- */
     const payments = await Payment.find({
-      email: tenant.email,
+      tenantId: id,
       status: "paid",
-    })
-      .sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 });
 
     const totalPaid = payments.reduce(
-      (sum, p) => sum + (p.amountpaid || 0),
+      (sum, p) => sum + Number(p.amountpaid || 0),
       0
     );
+
+    /* ---------------- RENT LOGIC (CRITICAL FIX) ---------------- */
+    let monthlyRent = 0;
+
+    if (room.category === "Pg") {
+      monthlyRent =
+        room.services?.reduce(
+          (sum, s) => sum + Number(s.price || 0),
+          0
+        ) || 0;
+    } else {
+      monthlyRent = Number(room.rent || 0);
+    }
+
+    const advanceAmount =
+      monthlyRent * Number(room.advancedmonth || 0);
 
     /* ---------------- RESPONSE ---------------- */
     const response = {
@@ -83,17 +104,18 @@ exports.DasboardBooking = async (req, res) => {
         capacity: room.capacity,
         facilities: room.facilities,
         category: room.category,
-        price: tenant.rent,
-        advancedmonth: room.advancedmonth,
         services: room.services || [],
+        monthlyRent,
+        advancedMonth: room.advancedmonth || 0,
+        advanceAmount,
       },
 
       finance: {
-        monthlyRent: tenant.rent,
-        advancePaid: tenant.advanced,
-        securityDeposit: tenant.securityDeposit,
+        monthlyRent,
+        advanceAmount,
+        securityDeposit: tenant.securityDeposit || 0,
         totalPaid,
-        totalDues: tenant.duesamount,
+        totalDues: tenant.duesamount || 0,
         paymentStatus: tenant.paymentStatus,
         duesMonth: tenant.duesmonth,
         duesDays: tenant.duesdays,
@@ -115,3 +137,4 @@ exports.DasboardBooking = async (req, res) => {
     });
   }
 };
+

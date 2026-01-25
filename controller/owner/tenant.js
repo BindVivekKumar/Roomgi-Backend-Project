@@ -213,105 +213,213 @@ exports.AddTenants = async (req, res) => {
 // ---------------------------
 exports.MarkTenantInactive = async (req, res) => {
   try {
+    console.log("🚀 [CHECKOUT] MarkTenantInactive called");
+
     const { id } = req.params;
-    if (!id)
-      return res.status(400).json({ success: false, message: "Tenant ID is required" });
+    console.log("🆔 Tenant ID:", id);
 
+    if (!id) {
+      console.log("❌ Tenant ID missing");
+      return res.status(400).json({
+        success: false,
+        message: "Tenant ID is required",
+      });
+    }
+
+    /* ---------------- TENANT ---------------- */
+    console.log("🔍 Fetching tenant...");
     const tenant = await Tenant.findById(id);
-    if (!tenant)
-      return res.status(404).json({ success: false, message: "Tenant not found" });
 
+    if (!tenant) {
+      console.log("❌ Tenant not found");
+      return res.status(404).json({
+        success: false,
+        message: "Tenant not found",
+      });
+    }
+
+    console.log("✅ Tenant found:", {
+      name: tenant.name,
+      roomNumber: tenant.roomNumber,
+      status: tenant.status,
+    });
+
+    /* ---------------- BRANCH ---------------- */
+    console.log("🏢 Fetching branch:", tenant.branch);
     const branch = await PropertyBranch.findById(tenant.branch);
-    if (!branch)
-      return res.status(404).json({ success: false, message: "Branch not found" });
 
+    if (!branch) {
+      console.log("❌ Branch not found");
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found",
+      });
+    }
+
+    console.log("✅ Branch found:", branch.name);
+
+    /* ---------------- ROOM ---------------- */
+    console.log("🚪 Locating room:", tenant.roomNumber);
     const room = branch.rooms.find(
-      r => Number(r.roomNumber) === Number(tenant.roomNumber)
+      (r) => Number(r.roomNumber) === Number(tenant.roomNumber)
     );
-    if (!room)
-      return res.status(404).json({ success: false, message: "Room not found" });
 
+    if (!room) {
+      console.log("❌ Room not found in branch");
+      return res.status(404).json({
+        success: false,
+        message: "Room not found",
+      });
+    }
+
+    console.log("✅ Room found:", {
+      roomNumber: room.roomNumber,
+      category: room.category,
+      occupied: room.occupied,
+      vacant: room.vacant,
+    });
+
+    /* ---------------- CAPACITY ---------------- */
     const capacity =
       room.type === "Double" ? 2 :
       room.type === "Triple" ? 3 : 1;
 
+    console.log("👥 Room capacity:", capacity);
+
     /* ---------------- PAYMENT CHECK ---------------- */
+    console.log("💰 Fetching payments...");
     const payments = await Payment.find({ tenantId: tenant._id });
-    let totalPaid = tenant.advanced || 0;
-    payments.forEach(p => totalPaid += p.amountpaid);
+
+    let totalPaid = Number(tenant.advanced || 0);
+    payments.forEach((p) => {
+      totalPaid += Number(p.amountpaid || 0);
+    });
+
+    console.log("💵 Total Paid:", totalPaid);
 
     const checkIn = new Date(tenant.checkInDate);
     const checkOut = new Date();
+
+    console.log("📅 Check-in:", checkIn);
+    console.log("📅 Checkout:", checkOut);
 
     const totalMonths =
       (checkOut.getFullYear() - checkIn.getFullYear()) * 12 +
       (checkOut.getMonth() - checkIn.getMonth()) + 1;
 
-    const totalShouldPay = totalMonths * tenant.rent;
+    const totalShouldPay = totalMonths * Number(tenant.rent || 0);
+
+    console.log("📊 Total Months Stayed:", totalMonths);
+    console.log("📊 Total Rent Expected:", totalShouldPay);
 
     if (totalPaid < totalShouldPay) {
+      console.log("❌ Dues pending:", totalShouldPay - totalPaid);
       return res.status(400).json({
         success: false,
-        message: `Clear dues before checkout. Pending: ₹${totalShouldPay - totalPaid}`
+        message: `Clear dues before checkout. Pending: ₹${totalShouldPay - totalPaid}`,
       });
     }
 
-    /* ---------------- CHECKOUT ---------------- */
+    console.log("✅ All dues cleared");
+
+    /* ---------------- CHECKOUT PROCESS ---------------- */
+    console.log("🔄 Marking tenant inactive...");
     tenant.status = "In-Active";
     tenant.checkedoutdate = checkOut;
 
+    /* ---------------- OCCUPANCY UPDATE ---------------- */
+    console.log("🏨 Updating room occupancy");
+
     if (room.category === "Pg") {
       room.occupied = Math.max(0, room.occupied - 1);
+      console.log("PG occupied updated:", room.occupied);
     }
 
     if (room.category === "Rented-Room") {
-      room.occupiedRentalRoom = Math.max(0, room.occupiedRentalRoom - 1);
-    }
-
-    if (room.category === "Hotel") {
-      room.occupiedhotelroom = Math.max(0, room.occupiedhotelroom - 1);
-    }
-
-    // Increase vacant count
-    room.vacant = Math.min(capacity, room.vacant + 1);
-
-    // Update availability
-    room.availabilityStatus =
-      room.occupied < capacity ? "Available" : "Occupied";
-
-    // Remove room from occupied list if empty
-    if (room.occupied === 0) {
-      branch.occupiedRoom = branch.occupiedRoom.filter(
-        rn => Number(rn) !== Number(room.roomNumber)
+      room.occupiedRentalRoom = Math.max(
+        0,
+        room.occupiedRentalRoom - 1
+      );
+      console.log(
+        "Rental occupied updated:",
+        room.occupiedRentalRoom
       );
     }
 
+    if (room.category === "Hotel") {
+      room.occupiedhotelroom = Math.max(
+        0,
+        room.occupiedhotelroom - 1
+      );
+      console.log(
+        "Hotel occupied updated:",
+        room.occupiedhotelroom
+      );
+    }
+
+    room.vacant = Math.min(capacity, room.vacant + 1);
+    console.log("🪑 Vacant seats:", room.vacant);
+
+    room.availabilityStatus =
+      room.occupied < capacity ? "Available" : "Occupied";
+
+    console.log(
+      "📌 Availability:",
+      room.availabilityStatus
+    );
+
+    /* ---------------- BRANCH CLEANUP ---------------- */
+    if (room.occupied === 0) {
+      console.log("🧹 Removing room from occupied list");
+      branch.occupiedRoom = branch.occupiedRoom.filter(
+        (rn) => Number(rn) !== Number(room.roomNumber)
+      );
+    }
+
+    /* ---------------- SAVE ---------------- */
+    console.log("💾 Saving tenant & branch...");
     await tenant.save();
     await branch.save();
+    console.log("✅ Database updated");
 
     /* ---------------- REDIS CLEAR ---------------- */
     if (redisClient) {
+      console.log("🧹 Clearing Redis cache");
+
       await redisClient.del("all-pg");
-      const keys = await redisClient.keys("tenant-*");
-      if (keys.length) await redisClient.del(keys);
+
+      const tenantKeys = await redisClient.keys("tenant-*");
+      if (tenantKeys.length) {
+        await redisClient.del(tenantKeys);
+        console.log("🗑 Tenant cache cleared");
+      }
+
       const branchKeys = await redisClient.keys("branches-*");
-      if (branchKeys.length) await redisClient.del(branchKeys);
+      if (branchKeys.length) {
+        await redisClient.del(branchKeys);
+        console.log("🗑 Branch cache cleared");
+      }
+
       const roomKeys = await redisClient.keys("room-*");
-      if (roomKeys.length) await redisClient.del(roomKeys);
+      if (roomKeys.length) {
+        await redisClient.del(roomKeys);
+        console.log("🗑 Room cache cleared");
+      }
     }
+
+    console.log("🎉 Checkout completed successfully");
 
     return res.status(200).json({
       success: true,
       message: "Tenant checked out successfully",
-      tenant
+      tenant,
     });
-
   } catch (error) {
-    console.error("MarkTenantInactive Error:", error);
+    console.error("🔥 MarkTenantInactive Error:", error);
     return res.status(500).json({
       success: false,
       message: "Server Error",
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -444,7 +552,7 @@ exports.GetTenantsByBranchId = async (req, res) => {
         const cachedKey = `tenant-branch-${id}`;
 
         const cachedData = await redisClient.get(cachedKey);
-        if (cachedData) return res.status(200).json({ success: true, message: "Tenants fetched from cacheerercv", tenants: JSON.parse(cachedData) });
+        // if (cachedData) return res.status(200).json({ success: true, message: "Tenants fetched from cacheerercv", tenants: JSON.parse(cachedData) });
 
         const tenants = await Tenant.find({ branch: id });
         await redisClient.set(cachedKey, JSON.stringify(tenants), { EX: 3600 });
@@ -584,82 +692,91 @@ exports.calculatePending = async (req, res) => {
 // Get Booking Details of Current Tenant
 // ---------------------------
 exports.BookingDetails = async (req, res) => {
-    try {
-        const cacheKey = `tenant-${req.user._id}-booking`;
+  try {
+    const cacheKey = `tenant-${req.user._id}-booking`;
 
-        // 1️⃣ Try fetching from Redis cache
-        let cached = null;
-        try {
-            cached = await redisClient.get(cacheKey);
-        } catch (err) {
-            console.warn("Redis fetch error:", err.message);
-        }
+    /* ================= REDIS CACHE ================= */
+    // if (redisClient) {
+    //   try {
+    //     const cached = await redisClient.get(cacheKey);
+    //     if (cached) {
+    //       return res.status(200).json({
+    //         success: true,
+    //         message: "Bookings fetched from cache",
+    //         bookings: JSON.parse(cached),
+    //       });
+    //     }
+    //   } catch (err) {
+    //     console.warn("⚠ Redis fetch error:", err.message);
+    //   }
+  
 
-        // if (cached) {
-        //     return res.status(200).json({
-        //         success: true,
-        //         message: "All bookings fetched from cache",
-        //         bookings: JSON.parse(cached),
-        //     });
-        // }
+    /* ================= DB QUERY ================= */
+    const bookings = await Booking.find({ email: req.user.email }).populate("tenantId")
+      .populate({
+        path: "branch",
+        select: "name city rooms tenantId",
+        populate: [
+        
+          {
+            path: "rooms",
+            match: { roomNumber: { $exists: true } }, // base condition
+            populate: {
+              path: "personalreview",
+              model: "Review",
+              select: "rating review user createdAt",
+            },
+          },
+        ],
+      })
+      .sort({ bookingDate: -1 })
+      .lean(); // ✅ performance boost
 
-        // 2️⃣ Fetch bookings from DB
-        const userBookings = await Booking.find({ email: req.user.email })
-            .populate({
-                path: "branch",
-                select: "name city rooms",
-                populate: {
-                    path: "rooms",
-                    match: { roomNumber: { $in: [] } }, // will filter below
-                    populate: {
-                        path: "personalreview",
-                        model: "Review",
-                        select: "rating review user createdAt"
-                    }
-                }
-            })
-            .sort({ bookingDate: -1 });
-
-        if (!userBookings.length) {
-            return res.status(404).json({
-                success: false,
-                message: "No bookings found for this tenant",
-            });
-        }
-
-        // 3️⃣ Filter rooms to only include booked room
-        const filteredBookings = userBookings.map(booking => {
-            if (booking.branch && booking.branch.rooms) {
-                booking.branch.rooms = booking.branch.rooms.filter(
-                    room => room.roomNumber === booking.roomNumber
-                );
-            }
-            return booking;
-        });
-
-        // 4️⃣ Cache the filtered bookings for 10 minutes
-        try {
-            await redisClient.setEx(cacheKey, 600, JSON.stringify(filteredBookings));
-        } catch (err) {
-            console.warn("Redis caching failed:", err.message);
-        }
-
-        // 5️⃣ Return response
-        return res.status(200).json({
-            success: true,
-            message: "All bookings fetched successfully",
-            bookings: filteredBookings,
-        });
-
-    } catch (error) {
-        console.error("BookingDetails Error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Server Error",
-        });
+    if (!bookings.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No bookings found",
+      });
     }
-};
 
+    /* ================= FILTER ONLY BOOKED ROOM ================= */
+    const filteredBookings = bookings.map((booking) => {
+      if (booking.branch?.rooms?.length) {
+        booking.branch.rooms = booking.branch.rooms.filter(
+          (room) => room.roomNumber === booking.roomNumber
+        );
+      }
+      return booking;
+    });
+
+    /* ================= CACHE RESULT ================= */
+    if (redisClient) {
+      try {
+        await redisClient.setEx(
+          cacheKey,
+          600, // 10 minutes
+          JSON.stringify(filteredBookings)
+        );
+      } catch (err) {
+        console.warn("⚠ Redis cache failed:", err.message);
+      }
+    }
+
+    /* ================= RESPONSE ================= */
+    return res.status(200).json({
+      success: true,
+      message: "Bookings fetched successfully",
+      bookings: filteredBookings,
+    });
+
+  } catch (error) {
+    console.error("❌ BookingDetails Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+  }
+};
 
 // ---------------------------
 // Get Rent History of a Tenant

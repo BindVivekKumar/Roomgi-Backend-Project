@@ -7,27 +7,41 @@ const PropertyBranch = require("../../model/owner/propertyBranch.js")
 // Get all published & verified PG rooms (with caching)
 exports.getAllPg = async (req, res) => {
   try {
-    const cacheKey = "all-pg";
-    console.log("HIII");
+    const { lat, lng } = req.query;
+    console.log(lat)
 
-    /* ---------------- REDIS CACHE ---------------- */
-    
+    let pipeline = [];
 
-    /* ---------------- DB QUERY (AGGREGATION) ---------------- */
-    const allrooms = await PropertyBranch.aggregate([
+    /* =========================
+       CASE 1: LOCATION PROVIDED
+       ========================= */
+    if (lat && lng) {
+      pipeline.push({
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [parseFloat(lng), parseFloat(lat)],
+          },
+          distanceField: "distance",
+          spherical: true,
+        },
+      });
+    }
+
+    /* =========================
+       COMMON PIPELINE
+       ========================= */
+    pipeline.push(
       { $unwind: "$rooms" },
 
-     
-
       {
-        $lookup: {
-          from: "propertybranches",
-          localField: "rooms.branch",
-          foreignField: "_id",
-          as: "branchData",
+        $match: {
+          "rooms.category": "Pg",
+
+          // ✅ VERIFIED ONLY
+          "rooms.verified": true,
         },
       },
-      { $unwind: "$branchData" },
 
       {
         $project: {
@@ -35,39 +49,49 @@ exports.getAllPg = async (req, res) => {
           category: "$rooms.category",
           allowedFor: "$rooms.allowedFor",
           verified: "$rooms.verified",
-          vacant: "$rooms.vacant",
+          occupied: "$rooms.occupied",
           price: "$rooms.price",
           type: "$rooms.type",
           flattype: "$rooms.flattype",
           furnishedType: "$rooms.furnishedType",
-          roomImages:  { $arrayElemAt: ["$rooms.roomImages", 0] },
+          roomImages: { $arrayElemAt: ["$rooms.roomImages", 0] },
           personalreview: "$rooms.personalreview",
-          services:"$rooms.services",
-          availabilityStatus:"$rooms.availabilityStatus",
+          services: "$rooms.services",
+          availabilityStatus: "$rooms.availabilityStatus",
+
+          /* Distance only when location exists */
+          distanceInKm: lat && lng
+            ? { $round: [{ $divide: ["$distance", 1000] }, 2] }
+            : null,
+
           branch: {
-            name: "$branchData.name",
-            address: "$branchData.address",
-            Propertyphoto: "$branchData.Propertyphoto",
+            name: "$name",
+            address: "$address",
+            Propertyphoto: "$Propertyphoto",
           },
         },
-      },
+      }
+    );
 
-      // ✅ LIMIT TO 20 ROOMS
-      { $limit: 20 },
-    ]);
-
-    /* ---------------- SAVE TO CACHE ---------------- */
-    if (redisClient) {
-      await redisClient.setEx(
-        cacheKey,
-        3600,
-        JSON.stringify(allrooms)
-      );
+    /* =========================
+       SORT / RANDOM LOGIC
+       ========================= */
+    if (lat && lng) {
+      pipeline.push({ $sort: { distanceInKm: 1 } });
+    } else {
+      // 🔥 RANDOM VERIFIED PGs
+      pipeline.push({ $sample: { size: 20 } });
     }
+
+    pipeline.push({ $limit: 20 });
+
+    const allrooms = await PropertyBranch.aggregate(pipeline);
 
     return res.status(200).json({
       success: true,
-      message: "Got all PG successfully",
+      message: lat && lng
+        ? "Nearest verified PGs fetched successfully"
+        : "Random verified PGs fetched successfully",
       allrooms,
     });
 
@@ -79,6 +103,7 @@ exports.getAllPg = async (req, res) => {
     });
   }
 };
+
 
 
 exports.getpopular = async (req, res) => {
