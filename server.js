@@ -100,14 +100,12 @@ mongoose
     socketTimeoutMS: 45000,
   })
   .then(() => {
-    console.log("✅ Database connected");
 
     /* =======================
        🔥 START CRONS
     ======================= */
-    require("./cron/refund");
+   
     require("./cron/dailyrentcalculate");
-    console.log("⏰ Crons started");
 
     /* =======================
        🔥 START WORKERS
@@ -116,7 +114,6 @@ mongoose
     require("./worker/duescalculateworker");
     require("./worker/paymentrentworker");
     require("./worker/refundworker");
-    console.log("🛠 All workers started");
 
     /* =======================
        🚀 START SERVER

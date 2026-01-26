@@ -23,13 +23,7 @@ const signupcontroller = async (req, res) => {
                 message: 'please filled all the data carefully'
             })
         }
-        if (password.length < 6 || password.length > 10) {
-            return res.status(400).json({
-                success: false,
-                message: "Password length should be between 6 to 10 characters"
-            });
-        }
-
+      
 
         const existinguser = await Signup.findOne({ email: email });
         if (existinguser) {
