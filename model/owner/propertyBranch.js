@@ -108,7 +108,7 @@ const RoomSchema = new mongoose.Schema(
       {
         type: String,
         enum: [
-    "Keep Clean",
+    "Keep clean",
     "No Loud Music",
     "No Outside Guests",
     "Visitors Not Allowed",
@@ -185,7 +185,7 @@ const RoomSchema = new mongoose.Schema(
   "Cooler",
   "Fan",
   "Geyser",
-  "Heater",
+  "Heater","Non-AC",
 
   // Connectivity & Power
   "WiFi",

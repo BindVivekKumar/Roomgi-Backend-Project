@@ -529,59 +529,101 @@ exports.getAllRoomOfBranch = async (req, res) => {
     const { id } = req.params;
     const { cursor, limit = 10 } = req.query;
 
-    // Validate Branch ID
+    // ✅ Validate Branch ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Branch ID"
+        message: "Invalid Branch ID",
       });
     }
 
-    const branch = await propertyBranch.findById(id).lean();
+    const matchConditions = {
+      _id: new mongoose.Types.ObjectId(id),
+      "rooms.toPublish.status": true,
+      "rooms.verified": true,
+    };
 
-    if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: "Branch not found"
-      });
-    }
-
-    const rooms = branch.rooms || [];
-    let startIndex = 0;
-
-    // Cursor logic (skip for first page)
+    // Cursor condition
     if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
-      const index = rooms.findIndex(
-        r => r._id.toString() === cursor
-      );
-      if (index !== -1) startIndex = index + 1;
+      matchConditions["rooms._id"] = {
+        $gt: new mongoose.Types.ObjectId(cursor),
+      };
     }
 
-    const paginatedRooms = rooms.slice(
-      startIndex,
-      startIndex + Number(limit)
-    );
+    const rooms = await propertyBranch.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(id) } },
 
-    const hasMore = startIndex + Number(limit) < rooms.length;
-    const nextCursor = hasMore && paginatedRooms.length
-      ? paginatedRooms[paginatedRooms.length - 1]._id
-      : null;
+      { $unwind: "$rooms" },
+
+      { $match: matchConditions },
+
+      {
+        $project: {
+          _id: "$rooms._id",
+
+          /* Room Info */
+          category: "$rooms.category",
+          price: {
+            $cond: [
+              { $eq: ["$rooms.category", "Hotel"] },
+              "$rooms.rentperday",
+              "$rooms.price",
+            ],
+          },
+          city: "$rooms.city",
+          type: "$rooms.type",
+          vacant: "$rooms.vacant",
+          occupied: "$rooms.occupied",
+          facilities: "$rooms.facilities",
+          roomImages: "$rooms.roomImages",
+          services: "$rooms.services",
+          personalreview: "$rooms.personalreview",
+          verified: "$rooms.verified",
+          availabilityStatus: "$rooms.availabilityStatus",
+
+          /* Branch Info (same as filter API) */
+          branch: {
+            _id: "$_id",
+            name: "$name",
+            address: "$address",
+            Propertyphoto: "$Propertyphoto",
+            city: "$city",
+            verified: "$verified",
+          },
+        },
+      },
+
+      { $limit: Number(limit) + 1 },
+    ]);
+
+    // ✅ Cursor pagination handling
+    let hasMore = false;
+    let paginatedRooms = rooms;
+
+    if (rooms.length > Number(limit)) {
+      hasMore = true;
+      paginatedRooms = rooms.slice(0, Number(limit));
+    }
+
+    const nextCursor =
+      hasMore && paginatedRooms.length
+        ? paginatedRooms[paginatedRooms.length - 1]._id
+        : null;
 
     return res.status(200).json({
       success: true,
       metadata: {
-        totalRooms: rooms.length,
         count: paginatedRooms.length,
-        nextCursor
+        nextCursor,
       },
-      rooms: paginatedRooms
+      rooms: paginatedRooms,
     });
 
   } catch (error) {
     console.error("getAllRoomOfBranch:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
