@@ -76,7 +76,7 @@ const RoomSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["Single", "Double", "Triple"],
+      enum: ["Single", "Double", "Triple","four"],
       required: false,
     },
 
@@ -96,36 +96,37 @@ const RoomSchema = new mongoose.Schema(
     city: { type: String, index: true },
 
     /* ===== SERVICES ===== */
-    services: [
-      {
-        name: { type: String },
-        price: { type: Number },
-      },
-    ],
+    // services: [
+    //   {
+    //     name: { type: String },
+    //     price: { type: Number },
+    //   },
+    // ],
 
     /* ===== RULES & RESTRICTIONS ===== */
     rules: [
       {
         type: String,
         enum: [
-          "Timings",
-          "No noise",
-          "Keep clean",
-          "Keep room clean",
-          "No loud music",
-          "Maintain hygiene",
-          "No outside guests",
-          "Respect timings",
-        ],
+    "Keep Clean",
+    "No Loud Music",
+    "No Outside Guests",
+    "Visitors Not Allowed",
+    "No Parties",
+    "Follow Entry & Exit Timings",
+    "Inform Before Late Entry",
+    "Smoking Prohibited",
+    "Alcohol Prohibited",
+  ],
       },
     ],
 
-    notAllowed: [
-      {
-        type: String,
-        enum: ["Smoking", "Alcohol", "Pets", "Visitors", "Loud Music"],
-      },
-    ],
+    // notAllowed: [
+    //   {
+    //     type: String,
+    //     enum: ["Smoking", "Alcohol", "Pets", "Visitors", "Loud Music"],
+    //   },
+    // ],
 
     /* ===== META ===== */
     allowedFor: {
@@ -156,11 +157,11 @@ const RoomSchema = new mongoose.Schema(
     },
 
     /* ===== RELATION ===== */
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "branchmanager",
-      index: true,
-    },
+    // createdBy: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "branchmanager",
+    //   index: true,
+    // },
 
     branch: {
       type: mongoose.Schema.Types.ObjectId,
@@ -174,17 +175,44 @@ const RoomSchema = new mongoose.Schema(
       {
         type: String,
         enum: [
-          "AC",
-          "Non-AC",
-          "Bathroom",
-          "WiFi",
-          "Power Backup",
-          "Laundry",
-          "CCTV",
-          "Parking",
-          "Refrigerator",
-          "24x7 Electricity",
-        ],
+  // Food & Living
+  "Food Included",
+  "RO Water",
+  "Kitchen",
+
+  // Comfort & Climate
+  "AC",
+  "Cooler",
+  "Fan",
+  "Geyser",
+  "Heater",
+
+  // Connectivity & Power
+  "WiFi",
+  "Power Backup",
+
+  // Furniture & Appliances
+  "Bed",
+
+  "Study Table",
+  "Refrigerator",
+  "Washing Machine",
+  "TV",
+
+  // Hygiene & Services
+  "Laundry",
+  "Daily Cleaning",
+
+  // Security & Safety
+  "CCTV",
+
+
+  // Parking & Access
+  "Parking",
+  
+
+
+],
       },
     ],
   },
