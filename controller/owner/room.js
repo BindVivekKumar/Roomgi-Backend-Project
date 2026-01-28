@@ -384,7 +384,7 @@ exports.AddRoom = async (req, res) => {
     console.error("AddRoom Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+      message: "Internal Server Error"`${error}`,
     });
   }
 };
