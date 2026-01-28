@@ -260,7 +260,7 @@ exports.AddRoom = async (req, res) => {
     }
 
     /* ================= BRANCH CHECK ================= */
-    const branch = await propertyBranch.findById(branchid);
+    const branch = await PropertyBranch.findById(branchid);
     if (!branch) {
       return res.status(404).json({
         success: false,
@@ -393,7 +393,7 @@ exports.AddRoom = async (req, res) => {
 exports.ownerAllroom = async (req, res) => {
   try {
     // 1️⃣ Owner ke saare branches nikaalo
-    const branches = await propertyBranch
+    const branches = await PropertyBranch
       .find({ owner: req.user.id })
      
     if (!branches || branches.length === 0) {
@@ -442,7 +442,7 @@ exports.DeleteRoom = async (req, res) => {
     const userId = req.user._id;
 
     // 1️⃣ Find the branch containing this room
-    const foundBranch = await propertyBranch.findOne({ "rooms._id": id });
+    const foundBranch = await PropertyBranch.findOne({ "rooms._id": id });
     if (!foundBranch)
       return res.status(400).json({ success: false, message: "Branch not found for this room" });
 
@@ -550,7 +550,7 @@ exports.getAllRoomOfBranch = async (req, res) => {
       };
     }
 
-    const rooms = await propertyBranch.aggregate([
+    const rooms = await PropertyBranch.aggregate([
       { $match: { _id: new mongoose.Types.ObjectId(id) } },
 
       { $unwind: "$rooms" },
@@ -636,7 +636,7 @@ exports.UpdateRoom = async (req, res) => {
   try {
     const { Id } = req.params;
     const updateData = req.body;
-    const foundBranch = await propertyBranch.findOne({ "rooms._id": Id });
+    const foundBranch = await PropertyBranch.findOne({ "rooms._id": Id });
     if (!foundBranch) return res.status(400).json({ success: false, message: "Branch not found for this room" });
 
     const room = foundBranch.rooms.id(Id);
