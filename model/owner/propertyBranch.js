@@ -339,3 +339,5 @@ propertyBranchSchema.index({ name: "text", address: "text", city: "text" });
 ========================= */
 
 module.exports = mongoose.model("PropertyBranch", propertyBranchSchema);
+propertyBranchSchema.index({ location: "2dsphere" });
+

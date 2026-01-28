@@ -150,6 +150,45 @@ exports.AppliedAllFilters = async (req, res) => {
   }
 };
 
+exports.getAllnearestPg = async (req, res) => {
+  try {
+    const { lat, long } = req.body;
+
+    // validation
+    if (!lat || !long) {
+      return res.status(400).json({
+        success: false,
+        message: "Latitude and Longitude are required"
+      });
+    }
+
+    const nearestPg = await PropertyBranch.find({
+      location: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [long, lat] // longitude first
+          },
+          $maxDistance: 5000 // in meters
+        }
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: nearestPg.length,
+      data: nearestPg
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message
+    });
+  }
+};
 
 // ---------------------------
 // APPLY FILTERS BASED ON CITY
