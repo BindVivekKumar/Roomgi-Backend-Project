@@ -210,10 +210,11 @@ exports.getAllnearestPg = async (req, res) => {
           furnishedType: "$rooms.furnishedType",
           availabilityStatus: "$rooms.availabilityStatus",
 
-          roomImage: "$rooms.roomImages",
+          roomImage: {
+            $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
+          },
 
-          
-
+      
           branch: {
             _id: "$_id",
             name: "$name",
