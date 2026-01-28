@@ -8,7 +8,7 @@ const upload = multer({ storage: multer.diskStorage({}) });
 const {
    
     AddRoom,ownerAllroom,DeleteRoom,getAllRoomOfBranch,UpdateRoom,addRoomImages
-    ,deleteimage
+    ,deleteimage,getdetails
 } = require("../../controller/owner/room");
 
 
@@ -31,6 +31,7 @@ router.post(
     upload.fields([{ name: "images", maxCount: 10 }]),
     AddRoom
 );
+router.get("/get/:id", getdetails)
 
 
 
