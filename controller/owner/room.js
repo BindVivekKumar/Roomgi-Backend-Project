@@ -30,20 +30,204 @@ const mongoose = require('mongoose');
 
 
 
+// exports.AddRoom = async (req, res) => {
+//   try {
+//     /* ================= PARSE SERVICES ================= */
+//     let service = [];
+//     if (req.body.services) {
+//       service =
+//         typeof req.body.services === "string"
+//           ? JSON.parse(req.body.services)
+//           : req.body.services;
+//     }
+
+//     const userId = req.user._id;
+//     const imageFiles = req.files?.images || [];
+
+//     const {
+//       roomNumber,
+//       type,
+//       branchid,
+//       price,
+//       facilities,
+//       description,
+//       notAllowed,
+//       rules,
+//       furnishedType,
+//       allowedFor,
+//       availabilityStatus,
+//       rentperday,
+//       rentperhour,
+//       rentperNight,
+//       category,
+//       hoteltype,
+//       roomtype,
+//       renttype,
+//       flattype,
+//       advancedmonth,
+//     } = req.body;
+
+//     /* ================= BASIC VALIDATION ================= */
+//     if (!roomNumber || !category || !branchid) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "roomNumber, category and branch are required",
+//       });
+//     }
+
+//     /* ================= FIND BRANCH ================= */
+//     const branch = await propertyBranch.findById(branchid);
+//     if (!branch) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Branch not found",
+//       });
+//     }
+
+//     /* ================= CHECK DUPLICATE ROOM ================= */
+//     const exists = branch.rooms.some(
+//       (r) => Number(r.roomNumber) === Number(roomNumber)
+//     );
+
+//     if (exists) {
+//       return res.status(409).json({
+//         success: false,
+//         message: "Room number already exists",
+//       });
+//     }
+
+//     /* ================= IMAGE UPLOAD (PARALLEL) ================= */
+//     const uploadedImages = await Promise.all(
+//       imageFiles.map((file) =>
+//         Uploadmedia.Uploadmedia(file.path).then((r) => r.secure_url)
+//       )
+//     );
+
+//     /* ================= CAPACITY LOGIC ================= */
+//     let capacity = 1;
+//     if (type === "Double") capacity = 2;
+//     if (type === "Triple") capacity = 3;
+
+//     /* ================= CREATE ROOM OBJECT ================= */
+//     const newRoom = {
+//       roomNumber: Number(roomNumber),
+//       category,
+//       city: branch.city,
+//       services: service,
+
+//       type: category === "Pg" ? type : undefined,
+//       price: category !== "Hotel" ? price : undefined,
+
+//       renttype: category === "Rented-Room" ? renttype : undefined,
+//       flattype: renttype === "Flat-Rent" ? flattype : undefined,
+//       roomtype: renttype === "Room-Rent" ? roomtype : undefined,
+
+//       hoteltype: category === "Hotel" ? hoteltype : undefined,
+//       rentperday: category === "Hotel" ? rentperday : undefined,
+//       rentperhour: category === "Hotel" ? rentperhour : undefined,
+//       rentperNight: category === "Hotel" ? rentperNight : undefined,
+
+//       allowedFor: allowedFor || "Anyone",
+//       furnishedType: furnishedType || "Semi Furnished",
+
+//       facilities: Array.isArray(facilities)
+//         ? facilities
+//         : facilities
+//         ? [facilities]
+//         : [],
+
+//       notAllowed: Array.isArray(notAllowed)
+//         ? notAllowed
+//         : notAllowed
+//         ? [notAllowed]
+//         : [],
+
+//       rules: Array.isArray(rules) ? rules : rules ? [rules] : [],
+
+//       availabilityStatus: availabilityStatus || "Available",
+
+//       vacant: capacity,
+//       capacity,
+//       advancedmonth,
+
+//       createdBy: userId,
+//       branch: branch._id,
+//       roomImages: uploadedImages,
+
+//       description: description || "", // temporary
+//     };
+
+//     /* ================= SAVE ROOM FAST ================= */
+//     branch.rooms.push(newRoom);
+//     await branch.save();
+
+//     /* ================= BACKGROUND TASKS ================= */
+
+//     // 🔥 AI Description (NON-BLOCKING)
+//     generateRoomDescription({ newRoom, branch })
+//       .then((aiDesc) => {
+//         if (aiDesc) {
+//           const room = branch.rooms.id(newRoom._id);
+//           if (room) {
+//             room.description = aiDesc;
+//             branch.save();
+//           }
+//         }
+//       })
+//       .catch(console.error);
+
+//     // 📧 Email (NON-BLOCKING)
+//     sendaddroommail(
+//       req.user.email,
+//       req.user.username,
+//       roomNumber,
+//       branch.name,
+//       category,
+//       capacity
+//     ).catch(console.error);
+
+//     /* ================= RESPONSE ================= */
+//     return res.status(201).json({
+//       success: true,
+//       message: "Room added successfully",
+//       room: newRoom,
+//     });
+//   } catch (error) {
+//     console.error("AddRoom Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
 exports.AddRoom = async (req, res) => {
   try {
-    /* ================= PARSE SERVICES ================= */
-    let service = [];
-    if (req.body.services) {
-      service =
-        typeof req.body.services === "string"
-          ? JSON.parse(req.body.services)
-          : req.body.services;
+    /* ================= AUTH ================= */
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
     }
 
-    const userId = req.user._id;
+    /* ================= FILES ================= */
     const imageFiles = req.files?.images || [];
 
+    /* ================= SERVICES ================= */
+    let services = [];
+    if (typeof req.body.services === "string") {
+      try {
+        services = JSON.parse(req.body.services);
+      } catch {
+        services = [];
+      }
+    } else {
+      services = req.body.services || [];
+    }
+
+    /* ================= BODY ================= */
     const {
       roomNumber,
       type,
@@ -67,15 +251,15 @@ exports.AddRoom = async (req, res) => {
       advancedmonth,
     } = req.body;
 
-    /* ================= BASIC VALIDATION ================= */
+    /* ================= VALIDATION ================= */
     if (!roomNumber || !category || !branchid) {
       return res.status(400).json({
         success: false,
-        message: "roomNumber, category and branch are required",
+        message: "roomNumber, category and branchid are required",
       });
     }
 
-    /* ================= FIND BRANCH ================= */
+    /* ================= BRANCH CHECK ================= */
     const branch = await propertyBranch.findById(branchid);
     if (!branch) {
       return res.status(404).json({
@@ -84,48 +268,35 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    /* ================= CHECK DUPLICATE ROOM ================= */
-    const exists = branch.rooms.some(
-      (r) => Number(r.roomNumber) === Number(roomNumber)
-    );
-
-    if (exists) {
-      return res.status(409).json({
-        success: false,
-        message: "Room number already exists",
-      });
-    }
-
-    /* ================= IMAGE UPLOAD (PARALLEL) ================= */
+    /* ================= IMAGE UPLOAD ================= */
     const uploadedImages = await Promise.all(
       imageFiles.map((file) =>
         Uploadmedia.Uploadmedia(file.path).then((r) => r.secure_url)
       )
     );
 
-    /* ================= CAPACITY LOGIC ================= */
-    let capacity = 1;
-    if (type === "Double") capacity = 2;
-    if (type === "Triple") capacity = 3;
+    /* ================= CAPACITY ================= */
+    const capacity =
+      type === "Triple" ? 3 :
+      type === "Double" ? 2 : 1;
 
-    /* ================= CREATE ROOM OBJECT ================= */
+    /* ================= ROOM OBJECT ================= */
     const newRoom = {
       roomNumber: Number(roomNumber),
       category,
-      city: branch.city,
-      services: service,
+      services,
 
-      type: category === "Pg" ? type : undefined,
-      price: category !== "Hotel" ? price : undefined,
-
-      renttype: category === "Rented-Room" ? renttype : undefined,
-      flattype: renttype === "Flat-Rent" ? flattype : undefined,
-      roomtype: renttype === "Room-Rent" ? roomtype : undefined,
-
-      hoteltype: category === "Hotel" ? hoteltype : undefined,
-      rentperday: category === "Hotel" ? rentperday : undefined,
-      rentperhour: category === "Hotel" ? rentperhour : undefined,
-      rentperNight: category === "Hotel" ? rentperNight : undefined,
+      ...(category === "Pg" && { type }),
+      ...(category !== "Hotel" && { price }),
+      ...(category === "Rented-Room" && { renttype }),
+      ...(renttype === "Flat-Rent" && { flattype }),
+      ...(renttype === "Room-Rent" && { roomtype }),
+      ...(category === "Hotel" && {
+        hoteltype,
+        rentperday,
+        rentperhour,
+        rentperNight,
+      }),
 
       allowedFor: allowedFor || "Anyone",
       furnishedType: furnishedType || "Semi Furnished",
@@ -142,56 +313,73 @@ exports.AddRoom = async (req, res) => {
         ? [notAllowed]
         : [],
 
-      rules: Array.isArray(rules) ? rules : rules ? [rules] : [],
+      rules: Array.isArray(rules)
+        ? rules
+        : rules
+        ? [rules]
+        : [],
 
       availabilityStatus: availabilityStatus || "Available",
-
-      vacant: capacity,
       capacity,
+      vacant: capacity,
       advancedmonth,
 
-      createdBy: userId,
-      branch: branch._id,
-      roomImages: uploadedImages,
+      city: branch.city || "",
 
-      description: description || "", // temporary
+      createdBy: userId,
+      branch: branchid,
+      roomImages: uploadedImages,
+      description: description || "",
     };
 
-    /* ================= SAVE ROOM FAST ================= */
-    branch.rooms.push(newRoom);
-    await branch.save();
+    /* ================= ATOMIC INSERT ================= */
+    const updated = await propertyBranch.findOneAndUpdate(
+      {
+        _id: branchid,
+        "rooms.roomNumber": { $ne: Number(roomNumber) },
+      },
+      {
+        $push: { rooms: newRoom },
+      },
+      { new: true }
+    );
 
-    /* ================= BACKGROUND TASKS ================= */
-
-    // 🔥 AI Description (NON-BLOCKING)
-    generateRoomDescription({ newRoom, branch })
-      .then((aiDesc) => {
-        if (aiDesc) {
-          const room = branch.rooms.id(newRoom._id);
-          if (room) {
-            room.description = aiDesc;
-            branch.save();
-          }
-        }
-      })
-      .catch(console.error);
-
-    // 📧 Email (NON-BLOCKING)
-    sendaddroommail(
-      req.user.email,
-      req.user.username,
-      roomNumber,
-      branch.name,
-      category,
-      capacity
-    ).catch(console.error);
+    if (!updated) {
+      return res.status(409).json({
+        success: false,
+        message: "Room number already exists or branch not found",
+      });
+    }
 
     /* ================= RESPONSE ================= */
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Room added successfully",
       room: newRoom,
     });
+
+    /* ================= NON-BLOCKING TASKS ================= */
+
+    generateRoomDescription({ newRoom, branch: updated })
+      .then((aiText) => {
+        if (aiText) {
+          propertyBranch.updateOne(
+            { _id: branchid, "rooms.roomNumber": newRoom.roomNumber },
+            { $set: { "rooms.$.description": aiText } }
+          ).catch(console.error);
+        }
+      })
+      .catch(console.error);
+
+    sendaddroommail(
+      req.user.email,
+      req.user.username,
+      roomNumber,
+      updated.name,
+      category,
+      capacity
+    ).catch(console.error);
+
   } catch (error) {
     console.error("AddRoom Error:", error);
     return res.status(500).json({
@@ -341,59 +529,101 @@ exports.getAllRoomOfBranch = async (req, res) => {
     const { id } = req.params;
     const { cursor, limit = 10 } = req.query;
 
-    // Validate Branch ID
+    // ✅ Validate Branch ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Branch ID"
+        message: "Invalid Branch ID",
       });
     }
 
-    const branch = await propertyBranch.findById(id).lean();
+    const matchConditions = {
+      _id: new mongoose.Types.ObjectId(id),
+      "rooms.toPublish.status": true,
+      "rooms.verified": true,
+    };
 
-    if (!branch) {
-      return res.status(404).json({
-        success: false,
-        message: "Branch not found"
-      });
-    }
-
-    const rooms = branch.rooms || [];
-    let startIndex = 0;
-
-    // Cursor logic (skip for first page)
+    // Cursor condition
     if (cursor && mongoose.Types.ObjectId.isValid(cursor)) {
-      const index = rooms.findIndex(
-        r => r._id.toString() === cursor
-      );
-      if (index !== -1) startIndex = index + 1;
+      matchConditions["rooms._id"] = {
+        $gt: new mongoose.Types.ObjectId(cursor),
+      };
     }
 
-    const paginatedRooms = rooms.slice(
-      startIndex,
-      startIndex + Number(limit)
-    );
+    const rooms = await propertyBranch.aggregate([
+      { $match: { _id: new mongoose.Types.ObjectId(id) } },
 
-    const hasMore = startIndex + Number(limit) < rooms.length;
-    const nextCursor = hasMore && paginatedRooms.length
-      ? paginatedRooms[paginatedRooms.length - 1]._id
-      : null;
+      { $unwind: "$rooms" },
+
+      { $match: matchConditions },
+
+      {
+        $project: {
+          _id: "$rooms._id",
+
+          /* Room Info */
+          category: "$rooms.category",
+          price: {
+            $cond: [
+              { $eq: ["$rooms.category", "Hotel"] },
+              "$rooms.rentperday",
+              "$rooms.price",
+            ],
+          },
+          city: "$rooms.city",
+          type: "$rooms.type",
+          vacant: "$rooms.vacant",
+          occupied: "$rooms.occupied",
+          facilities: "$rooms.facilities",
+          roomImages: "$rooms.roomImages",
+          services: "$rooms.services",
+          personalreview: "$rooms.personalreview",
+          verified: "$rooms.verified",
+          availabilityStatus: "$rooms.availabilityStatus",
+
+          /* Branch Info (same as filter API) */
+          branch: {
+            _id: "$_id",
+            name: "$name",
+            address: "$address",
+            Propertyphoto: "$Propertyphoto",
+            city: "$city",
+            verified: "$verified",
+          },
+        },
+      },
+
+      { $limit: Number(limit) + 1 },
+    ]);
+
+    // ✅ Cursor pagination handling
+    let hasMore = false;
+    let paginatedRooms = rooms;
+
+    if (rooms.length > Number(limit)) {
+      hasMore = true;
+      paginatedRooms = rooms.slice(0, Number(limit));
+    }
+
+    const nextCursor =
+      hasMore && paginatedRooms.length
+        ? paginatedRooms[paginatedRooms.length - 1]._id
+        : null;
 
     return res.status(200).json({
       success: true,
       metadata: {
-        totalRooms: rooms.length,
         count: paginatedRooms.length,
-        nextCursor
+        nextCursor,
       },
-      rooms: paginatedRooms
+      rooms: paginatedRooms,
     });
 
   } catch (error) {
     console.error("getAllRoomOfBranch:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error"
+      message: "Internal server error",
     });
   }
 };
