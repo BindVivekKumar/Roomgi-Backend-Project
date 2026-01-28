@@ -8,14 +8,21 @@ const PropertyBranch = require("../../model/owner/propertyBranch.js")
 exports.getAllPg = async (req, res) => {
   try {
     const { lat, lng } = req.query;
-    console.log(lat)
+
+    const hasLocation =
+      lat &&
+      lng &&
+      lat !== "undefined" &&
+      lng !== "undefined" &&
+      !isNaN(lat) &&
+      !isNaN(lng);
 
     let pipeline = [];
 
     /* =========================
-       CASE 1: LOCATION PROVIDED
+       CASE 1: LOCATION GIVEN → NEAREST
        ========================= */
-    if (lat && lng) {
+    if (hasLocation) {
       pipeline.push({
         $geoNear: {
           near: {
@@ -32,14 +39,17 @@ exports.getAllPg = async (req, res) => {
        COMMON PIPELINE
        ========================= */
     pipeline.push(
-      { $unwind: "$rooms" },
+      {
+        $unwind: {
+          path: "$rooms",
+          preserveNullAndEmptyArrays: false,
+        },
+      },
 
       {
         $match: {
-          "rooms.category": "Pg",
-
-          // ✅ VERIFIED ONLY
-          "rooms.verified": true,
+          "rooms.category": { $regex: /^pg$/i },
+          "rooms.verified": true, // ✅ ONLY VERIFIED
         },
       },
 
@@ -52,15 +62,14 @@ exports.getAllPg = async (req, res) => {
           occupied: "$rooms.occupied",
           price: "$rooms.price",
           type: "$rooms.type",
-          flattype: "$rooms.flattype",
           furnishedType: "$rooms.furnishedType",
-          roomImages: { $arrayElemAt: ["$rooms.roomImages", 0] },
-          personalreview: "$rooms.personalreview",
-          services: "$rooms.services",
+          roomImages: {
+            $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
+          },
           availabilityStatus: "$rooms.availabilityStatus",
 
-          /* Distance only when location exists */
-          distanceInKm: lat && lng
+          // distance only when location present
+          distanceInKm: hasLocation
             ? { $round: [{ $divide: ["$distance", 1000] }, 2] }
             : null,
 
@@ -74,23 +83,32 @@ exports.getAllPg = async (req, res) => {
     );
 
     /* =========================
-       SORT / RANDOM LOGIC
+       SORT / RANDOM
        ========================= */
-    if (lat && lng) {
+    if (hasLocation) {
+      // 🔥 NEAREST FIRST
       pipeline.push({ $sort: { distanceInKm: 1 } });
     } else {
       // 🔥 RANDOM VERIFIED PGs
-      pipeline.push({ $sample: { size: 20 } });
+      pipeline.push({ $sample: { size: 10 } });
     }
 
-    pipeline.push({ $limit: 20 });
+    /* =========================
+       LIMIT
+       ========================= */
+    if (hasLocation) {
+      pipeline.push({ $limit: 10 });
+    }
 
     const allrooms = await PropertyBranch.aggregate(pipeline);
 
+    console.log("PG COUNT:", allrooms.length);
+
     return res.status(200).json({
       success: true,
-      message: lat && lng
-        ? "Nearest verified PGs fetched successfully"
+      count: allrooms.length,
+      message: hasLocation
+        ? "Nearest PGs fetched successfully"
         : "Random verified PGs fetched successfully",
       allrooms,
     });
@@ -103,6 +121,7 @@ exports.getAllPg = async (req, res) => {
     });
   }
 };
+
 
 
 
