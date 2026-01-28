@@ -109,6 +109,7 @@ const RoomSchema = new mongoose.Schema(
         type: String,
         enum: [
     "Keep Clean",
+    "No noise",
     "No Loud Music",
     "No Outside Guests",
     "Visitors Not Allowed",
