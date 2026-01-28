@@ -273,7 +273,7 @@ const propertyBranchSchema = new mongoose.Schema(
 
     /* ===== BASIC INFO ===== */
     name: { type: String, required: true, index: true },
-    address: { type: String, required: true, index: true },
+    address: { type: String },
     streetAdress: String,
     landmark: String,
 
