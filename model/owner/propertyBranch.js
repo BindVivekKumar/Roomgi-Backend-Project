@@ -114,6 +114,7 @@ const RoomSchema = new mongoose.Schema(
     "No Outside Guests",
     "Visitors Not Allowed",
     "No Parties",
+    "Timings",
     "Follow Entry & Exit Timings",
     "Inform Before Late Entry",
     "Smoking Prohibited",
