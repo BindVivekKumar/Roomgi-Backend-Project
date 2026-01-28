@@ -154,38 +154,95 @@ exports.getAllnearestPg = async (req, res) => {
   try {
     const { lat, long } = req.body;
 
-    // validation
     if (!lat || !long) {
       return res.status(400).json({
         success: false,
-        message: "Latitude and Longitude are required"
+        message: "Latitude and Longitude are required",
       });
     }
 
-    const nearestPg = await PropertyBranch.find({
-      location: {
-        $near: {
-          $geometry: {
+    const pipeline = [
+      /* =========================
+         GEO NEAR (NEAREST FIRST)
+         ========================= */
+      {
+        $geoNear: {
+          near: {
             type: "Point",
-            coordinates: [long, lat] // longitude first
+            coordinates: [parseFloat(long), parseFloat(lat)],
           },
-          $maxDistance: 5000 // in meters
-        }
-      }
-    });
+          distanceField: "distance",
+          spherical: true,
+          maxDistance: 5000, // 5km
+        },
+      },
+
+      /* =========================
+         UNWIND ROOMS
+         ========================= */
+      {
+        $unwind: {
+          path: "$rooms",
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+
+      /* =========================
+         ONLY VERIFIED PG
+         ========================= */
+      {
+        $match: {
+          "rooms.category": { $regex: /^pg$/i },
+          "rooms.verified": true,
+        },
+      },
+
+      /* =========================
+         FINAL SHAPE (CARD DATA)
+         ========================= */
+      {
+        $project: {
+          _id: "$rooms._id",
+          category: "$rooms.category",
+          type: "$rooms.type",
+          allowedFor: "$rooms.allowedFor",
+          price: "$rooms.price",
+          furnishedType: "$rooms.furnishedType",
+          availabilityStatus: "$rooms.availabilityStatus",
+
+          roomImage: "$rooms.roomImages",
+
+          
+
+          branch: {
+            _id: "$_id",
+            name: "$name",
+            address: "$address",
+            city: "$city",
+          },
+        },
+      },
+
+      /* =========================
+         SORT & LIMIT
+         ========================= */
+    
+      { $limit: 10 },
+    ];
+
+    const nearestPGs = await PropertyBranch.aggregate(pipeline);
 
     return res.status(200).json({
       success: true,
-      count: nearestPg.length,
-      data: nearestPg
+      count: nearestPGs.length,
+      data: nearestPGs,
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("Nearest PG error:", err);
     return res.status(500).json({
       success: false,
       message: "Server error",
-      error: err.message
     });
   }
 };
