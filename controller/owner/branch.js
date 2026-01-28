@@ -242,9 +242,9 @@ exports.AddBranch = async (req, res) => {
 
     const { address, city, state, pincode, name, streetAdress, landmark, locationName } = req.body;
 
-    if (!address || !city || !state || !pincode || !name) {
-      return res.status(400).json({ success: false, message: "Missing required fields" });
-    }
+    // if (!address || !city || !state || !pincode || !name) {
+    //   return res.status(400).json({ success: false, message: "Missing required fields" });
+    // }
 
  
 

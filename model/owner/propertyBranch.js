@@ -108,11 +108,13 @@ const RoomSchema = new mongoose.Schema(
       {
         type: String,
         enum: [
-    "Keep clean",
+    "Keep Clean",
+    "No noise",
     "No Loud Music",
     "No Outside Guests",
     "Visitors Not Allowed",
     "No Parties",
+    "Timings",
     "Follow Entry & Exit Timings",
     "Inform Before Late Entry",
     "Smoking Prohibited",
@@ -273,7 +275,7 @@ const propertyBranchSchema = new mongoose.Schema(
 
     /* ===== BASIC INFO ===== */
     name: { type: String, required: true, index: true },
-    address: { type: String, required: true, index: true },
+    address: { type: String },
     streetAdress: String,
     landmark: String,
 
