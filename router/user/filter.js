@@ -8,7 +8,7 @@ const upload = multer({ storage: multer.diskStorage({}) });
 const {
   
   
-    AppliedFilters, AppliedAllFilters,
+    AppliedFilters, AppliedAllFilters,getAllnearestPg
    
 } = require("../../controller/user/filter");
 
@@ -17,5 +17,6 @@ const {
 
 router.post("/appliedallfilter", AppliedAllFilters)
 router.get("/filtered/:cityFromQuery", AppliedFilters)
+router.post("/getallnearestpg", getAllnearestPg)
 
 module.exports = router;
