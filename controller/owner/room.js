@@ -6,6 +6,7 @@
 
 const redisClient = require("../../utils/redis");
 const propertyBranch = require("../../model/owner/propertyBranch.js")
+const PropertyBranch = require("../../model/owner/propertyBranch.js")
 const sendaddroommail=require("../../template/roomadd.js")
 const sendDeleteRoomMail=require("../../template/deleteroom.js")
 const Uploadmedia = require("../../utils/cloudinary.js")
