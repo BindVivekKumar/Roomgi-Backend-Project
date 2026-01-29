@@ -383,7 +383,7 @@ exports.AddRoom = async (req, res) => {
     console.error("AddRoom Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
+       message: `Server Error ${error}`,
     });
   }
 };
@@ -425,7 +425,7 @@ exports.ownerAllroom = async (req, res) => {
     console.error("Owner all room error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error while fetching rooms",
+      message: `Server Error ${error}`,
     });
   }
 };
@@ -519,7 +519,7 @@ exports.DeleteRoom = async (req, res) => {
     return res.status(200).json({ success: true, message: "Room Deleted Successfully" });
   } catch (error) {
     console.error("DeleteRoom Error:", error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -622,7 +622,7 @@ exports.getAllRoomOfBranch = async (req, res) => {
     console.error("getAllRoomOfBranch:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: `Server Error ${error}`,
     });
   }
 };
@@ -679,7 +679,7 @@ exports.UpdateRoom = async (req, res) => {
     return res.status(200).json({ success: true, message: "Room Updated Successfully" });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -717,7 +717,7 @@ exports.addRoomImages = async (req, res) => {
     return res.status(200).json({ success: true, message: "Images added successfully", roomImages: room.roomImages });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+    res.status(500).json({ success: false,  message: `Server Error ${error}`, error: err.message });
   }
 };
 
@@ -780,7 +780,7 @@ exports.deleteimage = async (req, res) => {
     console.error("deleteimage Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+       message: `Server Error ${error}`,
       error: error.message,
     });
   }
@@ -823,7 +823,7 @@ exports.ownerAllroom = async (req, res) => {
     console.error("Owner all room error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error while fetching rooms",
+       message: `Server Error ${error}`,
     });
   }
 };
@@ -917,7 +917,7 @@ exports.DeleteRoom = async (req, res) => {
     return res.status(200).json({ success: true, message: "Room Deleted Successfully" });
   } catch (error) {
     console.error("DeleteRoom Error:", error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -1020,7 +1020,7 @@ exports.getAllRoomOfBranch = async (req, res) => {
     console.error("getAllRoomOfBranch:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+       message: `Server Error ${error}`,
     });
   }
 };
@@ -1077,7 +1077,7 @@ exports.UpdateRoom = async (req, res) => {
     return res.status(200).json({ success: true, message: "Room Updated Successfully" });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -1115,7 +1115,7 @@ exports.addRoomImages = async (req, res) => {
     return res.status(200).json({ success: true, message: "Images added successfully", roomImages: room.roomImages });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+    res.status(500).json({ success: false, message: `Server Error ${error}`, error: err.message });
   }
 };
 
@@ -1137,7 +1137,7 @@ exports.getdetails = async (req, res) => {
     return res.status(200).json({ success: true, message: "Room details fetched successfully", room,location:foundBranch.location });
   } catch (error) {
     console.error("getdetails Error:", error);
-    return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -1201,7 +1201,7 @@ exports.deleteimage = async (req, res) => {
     console.error("deleteimage Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+       message: `Server Error ${error}`,
       error: error.message,
     });
   }

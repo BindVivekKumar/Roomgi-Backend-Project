@@ -202,7 +202,7 @@ exports.AddTenants = async (req, res) => {
     console.error("AddTenants Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: `Server Error ${error}`,
       error: error.message
     });
   }
@@ -418,7 +418,7 @@ exports.MarkTenantInactive = async (req, res) => {
     console.error("🔥 MarkTenantInactive Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server Error",
+      message: `Server Error ${error}`,
       error: error.message,
     });
   }
@@ -476,7 +476,7 @@ exports.UpdateTenant = async (req, res) => {
 
     } catch (error) {
         console.error("UpdateTenant Error:", error);
-        return res.status(500).json({ success: false, message: "Server error", error: error.message });
+        return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
     }
 };
 
@@ -508,7 +508,7 @@ exports.GetTenantById = async (req, res) => {
 
     } catch (error) {
         console.error("GetTenantById Error:", error);
-        return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+        return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
     }
 };
 
@@ -539,7 +539,7 @@ exports.AddRentTenants = async (req, res) => {
 
     } catch (error) {
         console.error("AddRentTenants Error:", error);
-        return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+        return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
     }
 };
 
@@ -561,7 +561,7 @@ exports.GetTenantsByBranchId = async (req, res) => {
 
     } catch (error) {
         console.error("GetTenantsByBranchId Error:", error);
-        return res.status(500).json({ success: false, message: "Server Error", error: error.message });
+        return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
     }
 };
 
@@ -675,7 +675,7 @@ exports.calculatePending = async (req, res) => {
         console.error("calculatePending Error:", error);
         return res.status(500).json({
             success: false,
-            message: "Server Error",
+            message: `Server Error ${error}`,
             error: error.message,
         });
     }
@@ -773,7 +773,7 @@ exports.BookingDetails = async (req, res) => {
     console.error("❌ BookingDetails Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server Error",
+       message: `Server Error ${error}`,
     });
   }
 };
@@ -814,7 +814,7 @@ exports.GetTenantRentHistory = async (req, res) => {
         console.error("GetTenantRentHistory Error:", error);
         return res.status(500).json({
             success: false,
-            message: "Server Error",
+             message: `Server Error ${error}`,
             error: error.message,
         });
     }
@@ -887,7 +887,7 @@ exports.getAlltenantbyStatus = async (req, res) => {
     console.error("getAlltenantbyStatus Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server Error",
+       message: `Server Error ${error}`,
       error: error.message,
     });
   }
@@ -925,7 +925,7 @@ exports.getAllStatusTenantByBranch = async (req, res) => {
         console.error("getAllStatusTenantByBranch Error:", error);
         return res.status(500).json({
             success: false,
-            message: "Server Error",
+            message: `Server Error ${error}`,
             error: error.message,
         });
     }
@@ -959,7 +959,7 @@ exports.getAllActiveTenant = async (req, res) => {
     console.error("getAllActiveTenant Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Server error",
+       message: `Server Error ${error}`,
       error: error.message,
     });
   }

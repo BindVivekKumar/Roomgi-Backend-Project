@@ -135,6 +135,8 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
+console.log(process.env.NODE_ENV);
+
 process.on("SIGINT", () => {
   console.log("🛑 SIGINT received. Shutting down...");
   process.exit(0);

@@ -57,7 +57,7 @@ exports.getAllbranchPayments = async (req, res) => {
         console.error("getAllbranchPayments Error:", error);
         return res.status(500).json({
             success: false,
-            message: "Internal server error",
+            message: `Server Error ${error}`,
         });
     }
 };
@@ -131,7 +131,7 @@ exports.createPayment = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: `Server Error ${error}`,
       error: error.message
     });
   }
@@ -172,7 +172,7 @@ exports.createExpense = async (req, res) => {
         console.log(error);
         return res.status(500).json({
             success: false,
-            message: "internal server error"
+            message: `Server Error ${error}`,
         })
 
     }
@@ -191,7 +191,7 @@ exports.getAllExpenses = async (req, res) => {
         console.log(error);
         return res.status(500).json({
             success: false,
-            message: "Internal server error",
+            message: `Server Error ${error}`,
         });
     }
 };
@@ -307,7 +307,7 @@ exports.RevenueDetails = async (req, res) => {
         console.error(error);
         return res.status(500).json({
             success: false,
-            message: "Internal server error",
+            message: `Server Error ${error}`,
         });
     }
 };
@@ -393,7 +393,7 @@ exports.payRent = async (req, res) => {
 
         res.status(500).json({
             success: false,
-            message: error.message
+            message: `Server Error ${error}`,
         });
     }
 };

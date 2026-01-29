@@ -85,7 +85,7 @@ exports.getAllComplaintsForManager = async (req, res) => {
 
     return res.status(200).json({ success: true, ...response, source: "db" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false,  message: `Server Error ${error}` });
   }
 };
 
@@ -117,7 +117,7 @@ exports.getAllComplaintsOfBranch = async (req, res) => {
 
     res.status(200).json({ success: true, ...response, source: "db" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Server Error", error: err.message });
+    res.status(500).json({ success: false,  message: `Server Error ${error}`, error: err.message });
   }
 };
 
@@ -152,7 +152,7 @@ exports.getComplaintsByCategory = async (req, res) => {
     res.status(200).json({ success: true, ...response, source: "db" });
   } catch (err) {
     console.log(err)
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false,  message: `Server Error ${err}` });
   }
 };
 
@@ -194,7 +194,7 @@ exports.getComplaintsByStatus = async (req, res) => {
     return res.status(200).json({ success: true, ...response, source: "db" });
   } catch (error) {
     console.log(error)
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({ success: false,  message: `Server Error ${error}` });
   }
 };
 
@@ -214,7 +214,7 @@ exports.changeStatusOfComplaint = async (req, res) => {
 
     res.json({ success: true, message: "Status updated successfully" });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: `Server Error ${error}` });
   }
 };
 
