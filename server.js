@@ -82,26 +82,26 @@ app.get("/health", (req, res) => {
 ======================= */
 
 // owner
-app.use("/api/branch/owner", require("./router/owner/branch"));
-app.use("/api/room/owner", require("./router/owner/room"));
-app.use("/api/payment/owner", require("./router/owner/payment"));
-app.use("/api/complain/owner", require("./router/owner/complaints"));
-app.use("/api/tenant/owner", require("./router/owner/tenant"));
+app.use("/api/v1/branch/owner", require("./router/owner/branch"));
+app.use("/api/v1/room/owner", require("./router/owner/room"));
+app.use("/api/v1/payment/owner", require("./router/owner/payment"));
+app.use("/api/v1/complain/owner", require("./router/owner/complaints"));
+app.use("/api/v1/tenant/owner", require("./router/owner/tenant"));
 
 // user
-app.use("/api/payment/user", require("./router/user/payment"));
-app.use("/api/complain/user", require("./router/user/complaints"));
-app.use("/api/review/user", require("./router/user/review"));
-app.use("/api/filter/user", require("./router/user/filter"));
-app.use("/api/property/user", require("./router/user/property"));
+app.use("/api/v1/payment/user", require("./router/user/payment"));
+app.use("/api/v1/complain/user", require("./router/user/complaints"));
+app.use("/api/v1/review/user", require("./router/user/review"));
+app.use("/api/v1/filter/user", require("./router/user/filter"));
+app.use("/api/v1/property/user", require("./router/user/property"));
 
 // admin
-app.use("/api/admin/certificate", require("./router/owner/certificate"));
-app.use("/api/property/admin", require("./router/admin/pg_details"));
+app.use("/api/v1/admin/certificate", require("./router/owner/certificate"));
+app.use("/api/v1/property/admin", require("./router/admin/pg_details"));
 
 // common
-app.use("/api/v1/user", require("./router/user"));
-app.use("/api/user/property", require("./router/user/property"));
+app.use("/api/v2/user", require("./router/user"));
+app.use("/api/v1/user/property", require("./router/user/property"));
 
 /* =======================
    🗄️ DATABASE + SERVER
