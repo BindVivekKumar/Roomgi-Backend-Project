@@ -4,31 +4,33 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const compression = require("compression");
-const webhookRouter = require("./router/webhook");
 
+const webhookRouter = require("./router/webhook");
 
 dotenv.config();
 const app = express();
-app.use(
-  "/api/payment",
-  webhookRouter
-);
-
 
 /* =======================
-   ⚡ SPEED + SECURITY MIDDLEWARES
+   🔥 RAZORPAY WEBHOOK
+   (MUST BE FIRST – RAW BODY)
 ======================= */
-app.use(compression({ threshold: 1024 })); // 1KB se bade responses zip honge
+app.use("/api/payment", webhookRouter);
 
+/* =======================
+   ⚡ SPEED MIDDLEWARE
+======================= */
+app.use(compression({ threshold: 1024 }));
+
+/* =======================
+   🔐 BODY PARSERS
+======================= */
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
-app.use((req, res, next) => {
-  res.setHeader("X-Powered-By", "Roomgi");
-  next();
-});
-
+/* =======================
+   🌍 CORS
+======================= */
 app.use(
   cors({
     origin: [
@@ -43,11 +45,25 @@ app.use(
 );
 
 /* =======================
-   🔥 RAZORPAY WEBHOOK (RAW BODY)
-   MUST BE BEFORE express.json()
+   🚫 NO CACHE (CRITICAL FIX)
 ======================= */
+app.use("/api", (req, res, next) => {
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate"
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
 
-// 🔥 CORRECT WAY
+/* =======================
+   🛡️ SECURITY HEADER
+======================= */
+app.use((req, res, next) => {
+  res.setHeader("X-Powered-By", "Roomgi");
+  next();
+});
 
 /* =======================
    ❤️ HEALTH CHECK
@@ -62,7 +78,7 @@ app.get("/health", (req, res) => {
 });
 
 /* =======================
-   ROUTERS
+   🚀 ROUTERS
 ======================= */
 
 // owner
@@ -88,7 +104,7 @@ app.use("/api/v1/user", require("./router/user"));
 app.use("/api/user/property", require("./router/user/property"));
 
 /* =======================
-   DATABASE + STARTUP
+   🗄️ DATABASE + SERVER
 ======================= */
 const PORT = process.env.PORT || 5000;
 
@@ -100,24 +116,19 @@ mongoose
     socketTimeoutMS: 45000,
   })
   .then(() => {
-
     /* =======================
-       🔥 START CRONS
+       ⏱️ CRONS
     ======================= */
-   
     require("./cron/dailyrentcalculate");
 
     /* =======================
-       🔥 START WORKERS
+       🧵 WORKERS
     ======================= */
     require("./worker/paymentworker");
     require("./worker/duescalculateworker");
     require("./worker/paymentrentworker");
     require("./worker/refundworker");
 
-    /* =======================
-       🚀 START SERVER
-    ======================= */
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
@@ -135,9 +146,8 @@ process.on("SIGTERM", () => {
   process.exit(0);
 });
 
-console.log(process.env.NODE_ENV);
-
 process.on("SIGINT", () => {
   console.log("🛑 SIGINT received. Shutting down...");
   process.exit(0);
 });
+
