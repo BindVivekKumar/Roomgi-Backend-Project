@@ -48,7 +48,7 @@ exports.getAllPg = async (req, res) => {
 
       {
         $match: {
-          "rooms.category": { $regex: /^pg$/i },
+          // "rooms.category": { $regex: /^pg$/i },
           "rooms.verified": true, // ✅ ONLY VERIFIED
         },
       },
@@ -62,6 +62,7 @@ exports.getAllPg = async (req, res) => {
           occupied: "$rooms.occupied",
           price: "$rooms.price",
           type: "$rooms.type",
+         
           furnishedType: "$rooms.furnishedType",
           roomImages: {
             $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
@@ -75,8 +76,10 @@ exports.getAllPg = async (req, res) => {
 
           branch: {
             name: "$name",
-            address: "$address",
+            // address: "$address",
             Propertyphoto: "$Propertyphoto",
+             streetAdress:"$streetAdress",
+             locationName:"$locationName"
           },
         },
       }

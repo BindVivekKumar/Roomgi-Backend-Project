@@ -10,25 +10,18 @@ const tranEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 
 const Mail = async (email, subject, htmlBody, textBody) => {
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.MAIL_HOST,
-      port: process.env.MAIL_PORT || 587,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASS,
+    const sendSmtpEmail = {
+      to: [{ email }],
+      sender: {
+        email: process.env.MAIL_FROM_EMAIL,
+        name: process.env.MAIL_FROM_NAME,
       },
-    });
-
-    const mailOptions = {
-      from: `"Smart Resume Review" <${process.env.MAIL_USER}>`,
-      to: email,
       subject,
-      text: textBody,
-      html: htmlBody,
+      htmlContent: htmlBody,
+      textContent: textBody,
     };
 
-    const result = await transporter.sendMzail(mailOptions);
+    const result = await tranEmailApi.sendTransacEmail(sendSmtpEmail);
 
     console.log("✅ Mail sent:", result.messageId);
     return result;
