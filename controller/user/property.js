@@ -62,7 +62,7 @@ exports.getAllPg = async (req, res) => {
           occupied: "$rooms.occupied",
           price: "$rooms.price",
           type: "$rooms.type",
-         
+         city:"$rooms.city",
           furnishedType: "$rooms.furnishedType",
           roomImages: {
             $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
