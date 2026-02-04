@@ -192,7 +192,7 @@ exports.getAllnearestPg = async (req, res) => {
          ========================= */
       {
         $match: {
-          "rooms.category": { $regex: /^pg$/i },
+          // "rooms.category": { $regex: /^pg$/i },
           "rooms.verified": true,
         },
       },
@@ -211,7 +211,7 @@ exports.getAllnearestPg = async (req, res) => {
           availabilityStatus: "$rooms.availabilityStatus",
 
           roomImage: {
-            $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
+            $ifNull: ["$rooms.roomImages", ""],
           },
 
       
