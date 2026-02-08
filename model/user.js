@@ -20,7 +20,6 @@ const SignupSchema = new mongoose.Schema({
   username: {
     type: String,
     required: true,
-    unique: true,
   },
   resetLink: {
     type: String

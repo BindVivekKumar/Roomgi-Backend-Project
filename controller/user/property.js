@@ -215,6 +215,10 @@ exports.getdetails = async (req, res) => {
   try {
     const { id } = req.params;
 
+
+
+    
+
     const foundBranch = await PropertyBranch.findOne({ "rooms._id": id }).lean();
     if (!foundBranch) return res.status(404).json({ success: false, message: "Branch containing the room not found" });
 
