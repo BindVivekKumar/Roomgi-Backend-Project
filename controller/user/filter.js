@@ -124,14 +124,15 @@ exports.AppliedAllFilters = async (req, res) => {
            services:"$rooms.services",
           branch: {
             name: "$branchData.name",
-            address: "$branchData.address",
+            //address: "$branchData.address",
+            streetAdress:"$branchData.streetAdress",
+             locationName:"$branchData.locationName",
             Propertyphoto: "$branchData.Propertyphoto",
           },
         },
       },
 
-      // 🚀 Pagination / limit
-      { $limit: 20 },
+     
     ]);
 
     return res.status(200).json({
