@@ -13,7 +13,7 @@ const PropertyBranch = require("../../model/owner/propertyBranch");
 async function invalidateCaches({ managerId, tenantId, branchId }) {
   if (!redisClient) return;
 
-  console.log("🧹 INVALIDATING CACHES...");
+  console.log(" INVALIDATING CACHES...");
   
   // Create an array of deletion tasks
   const keysToDelete = [];

@@ -296,6 +296,8 @@ exports.AppliedFilters = async (req, res) => {
              branch: {
                name: "$branchData.name",
                address: "$branchData.address",
+               streetAdress:"$branchData.streetAdress",
+               locationName:"$branchData.locationName",
                Propertyphoto: "$branchData.Propertyphoto",
              },
            },
