@@ -229,7 +229,7 @@ exports.getAllnearestPg = async (req, res) => {
          SORT & LIMIT
          ========================= */
     
-      { $limit: 10 },
+      { $limit: 12 },
     ];
 
     const nearestPGs = await PropertyBranch.aggregate(pipeline);
@@ -303,8 +303,7 @@ exports.AppliedFilters = async (req, res) => {
            },
          },
    
-         // ✅ LIMIT TO 20 ROOMS
-         { $limit: 20 },
+     
        ]);
        console.log(allrooms)
 
