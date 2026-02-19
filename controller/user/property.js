@@ -93,7 +93,7 @@ exports.getAllPg = async (req, res) => {
       pipeline.push({ $sort: { distanceInKm: 1 } });
     } else {
       // 🔥 RANDOM VERIFIED PGs
-      pipeline.push({ $sample: { size: 10 } });
+      pipeline.push({ $sample: { size: 12 } });
     }
 
     /* =========================
@@ -105,7 +105,7 @@ exports.getAllPg = async (req, res) => {
 
     const allrooms = await PropertyBranch.aggregate(pipeline);
 
-    console.log("PG COUNT:", allrooms.length);
+    // console.log("PG COUNT:", allrooms.length);
 
     return res.status(200).json({
       success: true,
