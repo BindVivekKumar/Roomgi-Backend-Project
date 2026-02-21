@@ -95,7 +95,7 @@ const HotelRoomSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 
-// 🔥 Prevent duplicate room number per branch
+//  Prevent duplicate room number per branch
 HotelRoomSchema.index(
   { hotel: 1, hotelRoomNumber: 1 },
   { unique: true }

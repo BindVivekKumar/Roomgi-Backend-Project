@@ -27,9 +27,9 @@ const RoomSchema = new mongoose.Schema(
     price: { type: Number, index: true },
     advancedmonth: { type: Number },
 
-    rentperday: Number,
-    rentperhour: Number,
-    rentperNight: Number,
+    // rentperday: Number,
+    // rentperhour: Number,
+    // rentperNight: Number,
 
     /* ===== CATEGORY ===== */
     category: {
@@ -40,21 +40,6 @@ const RoomSchema = new mongoose.Schema(
     },
 
     /* ===== TYPES (ENUM SAFE) ===== */
-    hoteltype: {
-      type: String,
-      enum: [
-        "Standard-Single",
-        "Standard-Double",
-        "Twin-Room",
-        "Triple-Room",
-        "Family-Room",
-        "Deluxe-Room",
-        "Super-Deluxe-Room",
-        "Executive-Room",
-        "Suite",
-      ],
-      required: false,
-    },
 
     flattype: {
       type: String,
@@ -83,7 +68,7 @@ const RoomSchema = new mongoose.Schema(
     /* ===== OCCUPANCY ===== */
     vacant: { type: Number, default: 0, index: true },
     occupiedRentalRoom: { type: Number, default: 0 },
-    occupiedhotelroom: { type: Number, default: 0 },
+    // occupiedhotelroom: { type: Number, default: 0 },
 
     availabilityStatus: {
       type: String,
@@ -303,6 +288,10 @@ const propertyBranchSchema = new mongoose.Schema(
     totalBeds: { type: Number, default: 0 },
 
     rooms: [RoomSchema],
+    hotelrooms: [{
+      type:mongoose.Schema.Types.ObjectId,
+      ref:"HotelRoom"
+    }],
     occupiedRoom: [{ type: Number }],
 
     roomNumbers: { type: [Number], required: true },

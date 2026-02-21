@@ -91,7 +91,6 @@ exports.AppliedAllFilters = async (req, res) => {
 
       { $match: matchConditions },
 
-      // 🔗 Join Branch info
       {
         $lookup: {
           from: "propertybranches",

@@ -18,7 +18,13 @@ exports.getAllPg = async (req, res) => {
       !isNaN(lng);
 
     let pipeline = [];
+   const totalrooms = await PropertyBranch.aggregate([
+  { $unwind: "$rooms" },
+  { $match: { "rooms.verified": true } },
+  { $count: "totalRooms" }
+]);
 
+const count = totalrooms[0]?.totalRooms || 0;
     /* =========================
        CASE 1: LOCATION GIVEN → NEAREST
        ========================= */
@@ -109,7 +115,7 @@ exports.getAllPg = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      count: allrooms.length,
+      count: count,
       message: hasLocation
         ? "Nearest PGs fetched successfully"
         : "Random verified PGs fetched successfully",
