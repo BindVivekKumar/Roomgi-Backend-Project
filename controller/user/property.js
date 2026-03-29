@@ -20,137 +20,137 @@ exports.getAllPg = async (req, res) => {
       !isNaN(lng);
 
     let pipeline = [];
-    if(category=="Hotel"){
-         const hotelrooms = await HotelRoom.aggregate([
-      {
-        $lookup: {
-          from: "propertybranches", // collection name
-          localField: "hotel_id",
-          foreignField: "_id",
-          as: "branch",
+    if (category == "Hotel") {
+      const hotelrooms = await HotelRoom.aggregate([
+        {
+          $lookup: {
+            from: "propertybranches", // collection name
+            localField: "hotel_id",
+            foreignField: "_id",
+            as: "branch",
+          },
         },
-      },
-      {
-        $unwind: "$branch"
+        {
+          $unwind: "$branch"
+        }
+      ]);
+      if (hotelrooms.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: "NO hotel Rooms Found"
+        })
       }
-    ]);
-    if (hotelrooms.length === 0) {
       return res.status(200).json({
         success: true,
-        message: "NO hotel Rooms Found"
+        hotelroom: hotelrooms
       })
     }
-    return res.status(200).json({
-      success: true,
-      hotelroom: hotelrooms
-    })
-    }
-    else if(category=="Pg"){
- const totalrooms = await PropertyBranch.aggregate([
-      { $unwind: "$rooms" },
-      { $match: { "rooms.verified": true } },
-      { $count: "totalRooms" }
-    ]);
+    else if (category == "Pg") {
+      const totalrooms = await PropertyBranch.aggregate([
+        { $unwind: "$rooms" },
+        { $match: { "rooms.verified": true } },
+        { $count: "totalRooms" }
+      ]);
 
-    const count = totalrooms[0]?.totalRooms || 0;
-    /* =========================
-       CASE 1: LOCATION GIVEN → NEAREST
-       ========================= */
-    if (hasLocation) {
-      pipeline.push({
-        $geoNear: {
-          near: {
-            type: "Point",
-            coordinates: [parseFloat(lng), parseFloat(lat)],
+      const count = totalrooms[0]?.totalRooms || 0;
+      /* =========================
+         CASE 1: LOCATION GIVEN → NEAREST
+         ========================= */
+      if (hasLocation) {
+        pipeline.push({
+          $geoNear: {
+            near: {
+              type: "Point",
+              coordinates: [parseFloat(lng), parseFloat(lat)],
+            },
+            distanceField: "distance",
+            spherical: true,
           },
-          distanceField: "distance",
-          spherical: true,
+        });
+      }
+
+      /* =========================
+         COMMON PIPELINE
+         ========================= */
+      pipeline.push(
+        {
+          $unwind: {
+            path: "$rooms",
+            preserveNullAndEmptyArrays: false,
+          },
         },
+
+        {
+          $match: {
+            // "rooms.category": { $regex: /^pg$/i },
+            "rooms.verified": true, // ✅ ONLY VERIFIED
+          },
+        },
+
+        {
+          $project: {
+            _id: "$rooms._id",
+            category: "$rooms.category",
+            allowedFor: "$rooms.allowedFor",
+            verified: "$rooms.verified",
+            occupied: "$rooms.occupied",
+            price: "$rooms.price",
+            type: "$rooms.type",
+            city: "$rooms.city",
+            furnishedType: "$rooms.furnishedType",
+            roomImages: {
+              $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
+            },
+            availabilityStatus: "$rooms.availabilityStatus",
+
+            // distance only when location present
+            distanceInKm: hasLocation
+              ? { $round: [{ $divide: ["$distance", 1000] }, 2] }
+              : null,
+
+            branch: {
+              name: "$name",
+              phoneNumber: "$phoneNumber",
+              Propertyphoto: "$Propertyphoto",
+              streetAdress: "$streetAdress",
+              locationName: "$locationName"
+            },
+          },
+        }
+      );
+
+      /* =========================
+         SORT / RANDOM
+         ========================= */
+      if (hasLocation) {
+        // 🔥 NEAREST FIRST
+        pipeline.push({ $sort: { distanceInKm: 1 } });
+      } else {
+        // 🔥 RANDOM VERIFIED PGs
+        pipeline.push({ $sample: { size: 10 } });
+      }
+
+      /* =========================
+         LIMIT
+         ========================= */
+      if (hasLocation) {
+        pipeline.push({ $limit: 10 });
+      }
+
+      const allrooms = await PropertyBranch.aggregate(pipeline);
+
+      // console.log("PG COUNT:", allrooms.length);
+
+      return res.status(200).json({
+        success: true,
+        count: count,
+        message: hasLocation
+          ? "Nearest PGs fetched successfully"
+          : "Random verified PGs fetched successfully",
+        allrooms,
       });
     }
 
-    /* =========================
-       COMMON PIPELINE
-       ========================= */
-    pipeline.push(
-      {
-        $unwind: {
-          path: "$rooms",
-          preserveNullAndEmptyArrays: false,
-        },
-      },
-
-      {
-        $match: {
-          // "rooms.category": { $regex: /^pg$/i },
-          "rooms.verified": true, // ✅ ONLY VERIFIED
-        },
-      },
-
-      {
-        $project: {
-          _id: "$rooms._id",
-          category: "$rooms.category",
-          allowedFor: "$rooms.allowedFor",
-          verified: "$rooms.verified",
-          occupied: "$rooms.occupied",
-          price: "$rooms.price",
-          type: "$rooms.type",
-          city: "$rooms.city",
-          furnishedType: "$rooms.furnishedType",
-          roomImages: {
-            $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
-          },
-          availabilityStatus: "$rooms.availabilityStatus",
-
-          // distance only when location present
-          distanceInKm: hasLocation
-            ? { $round: [{ $divide: ["$distance", 1000] }, 2] }
-            : null,
-
-          branch: {
-            name: "$name",
-            // address: "$address",
-            Propertyphoto: "$Propertyphoto",
-            streetAdress: "$streetAdress",
-            locationName: "$locationName"
-          },
-        },
-      }
-    );
-
-    /* =========================
-       SORT / RANDOM
-       ========================= */
-    if (hasLocation) {
-      // 🔥 NEAREST FIRST
-      pipeline.push({ $sort: { distanceInKm: 1 } });
-    } else {
-      // 🔥 RANDOM VERIFIED PGs
-      pipeline.push({ $sample: { size: 10 } });
-    }
-
-    /* =========================
-       LIMIT
-       ========================= */
-    if (hasLocation) {
-      pipeline.push({ $limit: 10 });
-    }
-
-    const allrooms = await PropertyBranch.aggregate(pipeline);
-
-    // console.log("PG COUNT:", allrooms.length);
-
-    return res.status(200).json({
-      success: true,
-      count: count,
-      message: hasLocation
-        ? "Nearest PGs fetched successfully"
-        : "Random verified PGs fetched successfully",
-      allrooms,
-    });
-    }
-   
 
   } catch (error) {
     console.error("getAllPg Error:", error);
@@ -164,7 +164,7 @@ exports.getAllPg = async (req, res) => {
 
 exports.getAllhotelRooms = async (req, res) => {
   try {
- 
+
 
   } catch (error) {
     console.error("getAllPg Error:", error);
@@ -263,8 +263,7 @@ exports.getpopular = async (req, res) => {
 exports.getdetails = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(id);
-
+   
     // 1️⃣ Try to find the room in PropertyBranch first
     const foundBranch = await PropertyBranch.findOne({ "rooms._id": id }).lean();
 
@@ -299,13 +298,12 @@ exports.getdetails = async (req, res) => {
     if (!room && !foundHotelRoom) {
       return res.status(404).json({ success: false, message: "Room not found" });
     }
-
-    // 6️⃣ Return the response
     return res.status(200).json({
       success: true,
       message: "Room details fetched successfully",
       room: foundHotelRoom ? foundHotelRoom : room,
-     location: foundHotelRoom ? foundHotelRoom.branch.locationName : foundBranch?.location // optional
+      location: foundHotelRoom ? foundHotelRoom.branch.locationName : foundBranch?.location,
+      phoneNumber:foundHotelRoom?foundHotelRoom.branch.phoneNumber:foundBranch?.phoneNumber
     });
   } catch (error) {
     console.error("getdetails Error:", error);
