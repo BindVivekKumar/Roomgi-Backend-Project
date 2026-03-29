@@ -7,7 +7,8 @@ const upload = multer({ storage: multer.diskStorage({}) });
 
 const {
   getAllPg,
-  getdetails
+  getdetails,
+  getAllhotelRooms
 } = require("../../controller/user/property");
 const {
     servicecities,
@@ -16,8 +17,11 @@ const {
 
 router.get("/services-cities", servicecities);
 
+
 router.get("/get/:id", getdetails)
 
 router.get("/allpg", getAllPg)
+
+router.get("/allhotelrooms", getAllhotelRooms)
 
 module.exports = router;

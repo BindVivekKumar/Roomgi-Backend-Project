@@ -94,6 +94,7 @@ app.use("/api/v1/complain/user", require("./router/user/complaints"));
 app.use("/api/v1/review/user", require("./router/user/review"));
 app.use("/api/v1/filter/user", require("./router/user/filter"));
 app.use("/api/v1/property/user", require("./router/user/property"));
+app.use("/api/v1/hotel/user", require("./router/user/hotel"));
 
 // admin
 app.use("/api/v1/admin/certificate", require("./router/owner/certificate"));

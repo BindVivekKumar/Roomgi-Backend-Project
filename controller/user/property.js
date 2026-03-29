@@ -1,13 +1,15 @@
 
 const redisClient = require("../../utils/redis.js");
 const PropertyBranch = require("../../model/owner/propertyBranch.js")
+const HotelRoom = require("../../model/hotel/hotelroom")
 
 
 
 // Get all published & verified PG rooms (with caching)
 exports.getAllPg = async (req, res) => {
   try {
-    const { lat, lng } = req.query;
+    const { lat, lng, category } = req.query;
+    console.log(req.query);
 
     const hasLocation =
       lat &&
@@ -18,13 +20,39 @@ exports.getAllPg = async (req, res) => {
       !isNaN(lng);
 
     let pipeline = [];
-   const totalrooms = await PropertyBranch.aggregate([
-  { $unwind: "$rooms" },
-  { $match: { "rooms.verified": true } },
-  { $count: "totalRooms" }
-]);
+    if(category=="Hotel"){
+         const hotelrooms = await HotelRoom.aggregate([
+      {
+        $lookup: {
+          from: "propertybranches", // collection name
+          localField: "hotel_id",
+          foreignField: "_id",
+          as: "branch",
+        },
+      },
+      {
+        $unwind: "$branch"
+      }
+    ]);
+    if (hotelrooms.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "NO hotel Rooms Found"
+      })
+    }
+    return res.status(200).json({
+      success: true,
+      hotelroom: hotelrooms
+    })
+    }
+    else if(category=="Pg"){
+ const totalrooms = await PropertyBranch.aggregate([
+      { $unwind: "$rooms" },
+      { $match: { "rooms.verified": true } },
+      { $count: "totalRooms" }
+    ]);
 
-const count = totalrooms[0]?.totalRooms || 0;
+    const count = totalrooms[0]?.totalRooms || 0;
     /* =========================
        CASE 1: LOCATION GIVEN → NEAREST
        ========================= */
@@ -68,7 +96,7 @@ const count = totalrooms[0]?.totalRooms || 0;
           occupied: "$rooms.occupied",
           price: "$rooms.price",
           type: "$rooms.type",
-         city:"$rooms.city",
+          city: "$rooms.city",
           furnishedType: "$rooms.furnishedType",
           roomImages: {
             $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
@@ -84,8 +112,8 @@ const count = totalrooms[0]?.totalRooms || 0;
             name: "$name",
             // address: "$address",
             Propertyphoto: "$Propertyphoto",
-             streetAdress:"$streetAdress",
-             locationName:"$locationName"
+            streetAdress: "$streetAdress",
+            locationName: "$locationName"
           },
         },
       }
@@ -99,7 +127,7 @@ const count = totalrooms[0]?.totalRooms || 0;
       pipeline.push({ $sort: { distanceInKm: 1 } });
     } else {
       // 🔥 RANDOM VERIFIED PGs
-      pipeline.push({ $sample: { size: 12 } });
+      pipeline.push({ $sample: { size: 10 } });
     }
 
     /* =========================
@@ -121,6 +149,22 @@ const count = totalrooms[0]?.totalRooms || 0;
         : "Random verified PGs fetched successfully",
       allrooms,
     });
+    }
+   
+
+  } catch (error) {
+    console.error("getAllPg Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+
+exports.getAllhotelRooms = async (req, res) => {
+  try {
+ 
 
   } catch (error) {
     console.error("getAllPg Error:", error);
@@ -133,13 +177,12 @@ const count = totalrooms[0]?.totalRooms || 0;
 
 
 
-
 exports.getpopular = async (req, res) => {
   try {
     const cacheKey = "all-popular-pg";
-   
+
     /* ---------------- REDIS CACHE ---------------- */
-    
+
 
     /* ---------------- DB QUERY (AGGREGATION) ---------------- */
     const allrooms = await PropertyBranch.aggregate([
@@ -220,22 +263,50 @@ exports.getpopular = async (req, res) => {
 exports.getdetails = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(id);
 
-
-
-    
-
+    // 1️⃣ Try to find the room in PropertyBranch first
     const foundBranch = await PropertyBranch.findOne({ "rooms._id": id }).lean();
-    if (!foundBranch) return res.status(404).json({ success: false, message: "Branch containing the room not found" });
 
-    const room = foundBranch.rooms.find(r => r._id.toString() === id);
-    if (!room) return res.status(404).json({ success: false, message: "Room not found" });
+    let foundHotelRoom = null;
+    if (!foundBranch) {
+      // 2️⃣ Find room in HotelRoom and populate hotel document fully
+      const roomDoc = await HotelRoom.findById(id)
+        .populate("hotel_id")   // fetch entire hotel document
+        .lean();
 
+      if (roomDoc) {
+        // 3️⃣ Move hotel_id content to branch
+        roomDoc.branch = roomDoc.hotel_id; // branch now has entire hotel content
+        delete roomDoc.hotel_id;           // remove original hotel_id
+        foundHotelRoom = roomDoc;
+      }
+    }
 
-    const cacheKey = `room-${foundBranch._id}-getdetails`;
-    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room,foundBranch.location));
+    // 4️⃣ If neither branch nor hotel room found → 404
+    if (!foundBranch && !foundHotelRoom) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch containing the room not found",
+      });
+    }
 
-    return res.status(200).json({ success: true, message: "Room details fetched successfully", room,location:foundBranch.location });
+    // 5️⃣ Get room object from PropertyBranch if exists
+    const room = foundBranch
+      ? foundBranch.rooms.find((r) => r._id.toString() === id)
+      : null;
+
+    if (!room && !foundHotelRoom) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
+
+    // 6️⃣ Return the response
+    return res.status(200).json({
+      success: true,
+      message: "Room details fetched successfully",
+      room: foundHotelRoom ? foundHotelRoom : room,
+     location: foundHotelRoom ? foundHotelRoom.branch.locationName : foundBranch?.location // optional
+    });
   } catch (error) {
     console.error("getdetails Error:", error);
     return res.status(500).json({ success: false, message: "Server error", error: error.message });

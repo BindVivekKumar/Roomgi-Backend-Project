@@ -7,13 +7,13 @@
 const redisClient = require("../../utils/redis");
 const propertyBranch = require("../../model/owner/propertyBranch.js")
 const PropertyBranch = require("../../model/owner/propertyBranch.js")
-const sendaddroommail=require("../../template/roomadd.js")
-const sendDeleteRoomMail=require("../../template/deleteroom.js")
+const sendaddroommail = require("../../template/roomadd.js")
+const sendDeleteRoomMail = require("../../template/deleteroom.js")
 const Uploadmedia = require("../../utils/cloudinary.js")
 const deletemedia = require("../../utils/cloudinary.js")
-const {emailQueue}= require("../../queue")
+const { emailQueue } = require("../../queue")
 const { generateRoomDescription } = require("../../prompts/aiDescription");
-
+const HotelRoom = require("../../model/hotel/hotelroom")
 
 const mongoose = require('mongoose');
 
@@ -202,7 +202,6 @@ const mongoose = require('mongoose');
 
 exports.AddRoom = async (req, res) => {
   try {
-    /* ================= AUTH ================= */
     const userId = req.user?._id;
     if (!userId) {
       return res.status(401).json({
@@ -211,10 +210,9 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    /* ================= FILES ================= */
     const imageFiles = req.files?.images || [];
 
-    /* ================= SERVICES ================= */
+    /* SERVICES */
     let services = [];
     if (typeof req.body.services === "string") {
       try {
@@ -226,7 +224,7 @@ exports.AddRoom = async (req, res) => {
       services = req.body.services || [];
     }
 
-    /* ================= BODY ================= */
+    /* BODY */
     const {
       roomNumber,
       type,
@@ -239,18 +237,25 @@ exports.AddRoom = async (req, res) => {
       furnishedType,
       allowedFor,
       availabilityStatus,
-      rentperday,
-      rentperhour,
-      rentperNight,
       category,
-      hoteltype,
       roomtype,
       renttype,
       flattype,
       advancedmonth,
+      extra_bed_price,
+      max_children,
+      max_adults,
     } = req.body;
 
-    /* ================= VALIDATION ================= */
+    /* ENUM VALIDATION 🔥 */
+    const validCategories = ["Pg", "Hotel", "Rented-Room"];
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category",
+      });
+    }
+
     if (!roomNumber || !category || !branchid) {
       return res.status(400).json({
         success: false,
@@ -258,7 +263,6 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    /* ================= BRANCH CHECK ================= */
     const branch = await PropertyBranch.findById(branchid);
     if (!branch) {
       return res.status(404).json({
@@ -267,19 +271,19 @@ exports.AddRoom = async (req, res) => {
       });
     }
 
-    /* ================= IMAGE UPLOAD ================= */
+    /* IMAGE UPLOAD */
     const uploadedImages = await Promise.all(
       imageFiles.map((file) =>
         Uploadmedia.Uploadmedia(file.path).then((r) => r.secure_url)
       )
     );
 
-    /* ================= CAPACITY ================= */
+    /* CAPACITY */
     const capacity =
       type === "Triple" ? 3 :
       type === "Double" ? 2 : 1;
 
-    /* ================= ROOM OBJECT ================= */
+    /* ROOM OBJECT */
     const newRoom = {
       roomNumber: Number(roomNumber),
       category,
@@ -287,15 +291,19 @@ exports.AddRoom = async (req, res) => {
 
       ...(category === "Pg" && { type }),
       ...(category !== "Hotel" && { price }),
+
+      ...(category === "Hotel" && {
+        room_type: roomtype,
+        base_price: price,
+        extra_bed_price,
+        max_children,
+        max_adults,
+        hotel_id:branchid
+      }),
+
       ...(category === "Rented-Room" && { renttype }),
       ...(renttype === "Flat-Rent" && { flattype }),
       ...(renttype === "Room-Rent" && { roomtype }),
-      ...(category === "Hotel" && {
-        hoteltype,
-        rentperday,
-        rentperhour,
-        rentperNight,
-      }),
 
       allowedFor: allowedFor || "Anyone",
       furnishedType: furnishedType || "Semi Furnished",
@@ -331,62 +339,50 @@ exports.AddRoom = async (req, res) => {
       description: description || "",
     };
 
-    /* ================= ATOMIC INSERT ================= */
-    const updated = await propertyBranch.findOneAndUpdate(
-      {
-        _id: branchid,
-        "rooms.roomNumber": { $ne: Number(roomNumber) },
-      },
-      {
-        $push: { rooms: newRoom },
-      },
-      { new: true }
-    );
+    let savedRoom;
 
-    if (!updated) {
-      return res.status(409).json({
-        success: false,
-        message: "Room number already exists or branch not found",
-      });
+    /* ================= INSERT ================= */
+
+    if (category === "Hotel") {
+      savedRoom = await HotelRoom.create(newRoom); // ✅ FIX
+    } else {
+      const updated = await PropertyBranch.findOneAndUpdate(
+        {
+          _id: branchid,
+          "rooms.roomNumber": { $ne: Number(roomNumber) },
+        },
+        {
+          $push: { rooms: newRoom },
+        },
+        { new: true }
+      );
+
+      if (!updated) {
+        return res.status(409).json({
+          success: false,
+          message: "Room already exists",
+        });
+      }
+
+      savedRoom = newRoom;
     }
 
-    /* ================= RESPONSE ================= */
+    /* RESPONSE */
     res.status(201).json({
       success: true,
       message: "Room added successfully",
-      room: newRoom,
+      room: savedRoom,
     });
-
-    /* ================= NON-BLOCKING TASKS ================= */
-
-    generateRoomDescription({ newRoom, branch: updated })
-      .then((aiText) => {
-        if (aiText) {
-          propertyBranch.updateOne(
-            { _id: branchid, "rooms.roomNumber": newRoom.roomNumber },
-            { $set: { "rooms.$.description": aiText } }
-          ).catch(console.error);
-        }
-      })
-      .catch(console.error);
-
-    sendaddroommail(
-      req.user.email,
-      req.user.username,
-      roomNumber,
-      updated.name,
-      category,
-      capacity
-    ).catch(console.error);
 
   } catch (error) {
     console.error("AddRoom Error:", error);
     return res.status(500).json({
       success: false,
-       message: `Server Error ${error}`,
+      message: `Server Error ${error}`,
     });
   }
 };
+
 
 
 exports.ownerAllroom = async (req, res) => {
@@ -394,7 +390,7 @@ exports.ownerAllroom = async (req, res) => {
     // 1️⃣ Owner ke saare branches nikaalo
     const branches = await propertyBranch
       .find({ owner: req.user.id })
-     
+
     if (!branches || branches.length === 0) {
       return res.status(404).json({
         success: false,
@@ -413,6 +409,7 @@ exports.ownerAllroom = async (req, res) => {
       }))
     );
 
+    
     // 3️⃣ Response
     return res.status(200).json({
       success: true,
@@ -513,13 +510,13 @@ exports.DeleteRoom = async (req, res) => {
       });
 
       // Or if you want inline sending (less ideal for production)
-       await sendDeleteRoomMail(userEmail, username, deletedRoomDetails);
+      await sendDeleteRoomMail(userEmail, username, deletedRoomDetails);
     }
 
     return res.status(200).json({ success: true, message: "Room Deleted Successfully" });
   } catch (error) {
     console.error("DeleteRoom Error:", error);
-    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
+    return res.status(500).json({ success: false, message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -679,7 +676,7 @@ exports.UpdateRoom = async (req, res) => {
     return res.status(200).json({ success: true, message: "Room Updated Successfully" });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
+    return res.status(500).json({ success: false, message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -717,7 +714,7 @@ exports.addRoomImages = async (req, res) => {
     return res.status(200).json({ success: true, message: "Images added successfully", roomImages: room.roomImages });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false,  message: `Server Error ${error}`, error: err.message });
+    res.status(500).json({ success: false, message: `Server Error ${error}`, error: err.message });
   }
 };
 
@@ -780,7 +777,7 @@ exports.deleteimage = async (req, res) => {
     console.error("deleteimage Error:", error);
     return res.status(500).json({
       success: false,
-       message: `Server Error ${error}`,
+      message: `Server Error ${error}`,
       error: error.message,
     });
   }
@@ -792,13 +789,14 @@ exports.ownerAllroom = async (req, res) => {
     // 1️⃣ Owner ke saare branches nikaalo
     const branches = await PropertyBranch
       .find({ owner: req.user.id })
-     
+
     if (!branches || branches.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No branches found for this owner",
       });
     }
+    const hotelroom=await HotelRoom.findById(branchid)
 
     // 2️⃣ Saare rooms ek array me flatten karo
     const allRooms = branches.flatMap(branch =>
@@ -810,6 +808,7 @@ exports.ownerAllroom = async (req, res) => {
         branchAddress: branch.address,
       }))
     );
+  
 
     // 3️⃣ Response
     return res.status(200).json({
@@ -817,16 +816,18 @@ exports.ownerAllroom = async (req, res) => {
       totalBranches: branches.length,
       totalRooms: allRooms.length,
       rooms: allRooms,
+      hotelrooms:hotelroom
     });
 
   } catch (error) {
     console.error("Owner all room error:", error);
     return res.status(500).json({
       success: false,
-       message: `Server Error ${error}`,
+      message: `Server Error ${error}`,
     });
   }
 };
+
 
 
 
@@ -911,13 +912,13 @@ exports.DeleteRoom = async (req, res) => {
       });
 
       // Or if you want inline sending (less ideal for production)
-       await sendDeleteRoomMail(userEmail, username, deletedRoomDetails);
+      await sendDeleteRoomMail(userEmail, username, deletedRoomDetails);
     }
 
     return res.status(200).json({ success: true, message: "Room Deleted Successfully" });
   } catch (error) {
     console.error("DeleteRoom Error:", error);
-    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
+    return res.status(500).json({ success: false, message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -1020,7 +1021,7 @@ exports.getAllRoomOfBranch = async (req, res) => {
     console.error("getAllRoomOfBranch:", error);
     return res.status(500).json({
       success: false,
-       message: `Server Error ${error}`,
+      message: `Server Error ${error}`,
     });
   }
 };
@@ -1077,7 +1078,7 @@ exports.UpdateRoom = async (req, res) => {
     return res.status(200).json({ success: true, message: "Room Updated Successfully" });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
+    return res.status(500).json({ success: false, message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -1132,12 +1133,12 @@ exports.getdetails = async (req, res) => {
 
 
     const cacheKey = `room-${foundBranch._id}-getdetails`;
-    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room,foundBranch.location));
+    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room, foundBranch.location));
 
-    return res.status(200).json({ success: true, message: "Room details fetched successfully", room,location:foundBranch.location });
+    return res.status(200).json({ success: true, message: "Room details fetched successfully", room, location: foundBranch.location });
   } catch (error) {
     console.error("getdetails Error:", error);
-    return res.status(500).json({ success: false,  message: `Server Error ${error}`, error: error.message });
+    return res.status(500).json({ success: false, message: `Server Error ${error}`, error: error.message });
   }
 };
 
@@ -1201,10 +1202,48 @@ exports.deleteimage = async (req, res) => {
     console.error("deleteimage Error:", error);
     return res.status(500).json({
       success: false,
-       message: `Server Error ${error}`,
+      message: `Server Error ${error}`,
       error: error.message,
     });
   }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

@@ -1,11 +1,15 @@
-const IORedis = require("ioredis");
+// utils/redis.js
+const { createClient } = require("redis");
 
-const redis = new IORedis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: null, // required for BullMQ
+const client = createClient({
+  url: "redis://default:GAwEUzyB65JRVGdIaXCwomLPlGudHCwu@redis-13152.c270.us-east-1-3.ec2.cloud.redislabs.com:13152"
 });
 
-redis.on("connect", () => console.log("✅ Redis connected"));
-redis.on("ready", () => console.log("🚀 Redis ready"));
-redis.on("error", (err) => console.log("⚠️ Redis error:", err.message));
+client.on("error", (err) => console.log("Redis Client Error", err));
 
-module.exports = redis;
+(async () => {
+  await client.connect();
+  console.log("✅ Connected to Redis");
+})();
+
+module.exports = client;
