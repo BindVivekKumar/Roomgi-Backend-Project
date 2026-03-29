@@ -303,6 +303,10 @@ const propertyBranchSchema = new mongoose.Schema(
 
     /* ===== FACILITIES ===== */
     facilities: { type: [String] },
+    phoneNumber:{
+      type:Number,
+      default:0
+    },
 
     /* ===== STATUS ===== */
     status: {

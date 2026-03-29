@@ -35,6 +35,59 @@ exports.GetAllBranch = async (req, res) => {
   }
 };
 
+exports.UpdatePhoneNUmber = async (req, res) => {
+  try {
+    const { branchId, number } = req.body;
+
+    // 1. Validation
+    if (!branchId || !number) {
+      return res.status(400).json({
+        success: false,
+        message: "Branch ID and phone number are required",
+      });
+    }
+
+    // 2. Phone validation (10 digit basic India format)
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(number)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number format",
+      });
+    }
+
+    // 3. Find and update branch
+    const updatedBranch = await PropertyBranch.findByIdAndUpdate(
+      branchId,
+      { phoneNumber: number },
+      { new: true }
+    );
+
+    // 4. If branch not found
+    if (!updatedBranch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found",
+      });
+    }
+
+    // 5. Success response
+    return res.status(200).json({
+      success: true,
+      message: "Phone number updated successfully",
+      data: updatedBranch,
+    });
+
+  } catch (error) {
+    console.error("UpdatePhoneNUmber Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
 exports.getStates = async (req, res) => {
   try {
     const states = await Location.distinct("state");

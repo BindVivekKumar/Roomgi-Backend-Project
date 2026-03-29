@@ -6,13 +6,13 @@ const upload = multer({ storage: multer.diskStorage({}) });
 
 
 const {
-    GetAllBranchByBranchId,GetAllBranchOwner,
-    listPgRoom,getalllistedandunlisted,
-    GetAllBranch,AddBranch,DeleteBranch,EditBranch,
-      getStates,
+  GetAllBranchByBranchId, GetAllBranchOwner,
+  listPgRoom, getalllistedandunlisted,
+  GetAllBranch, AddBranch, DeleteBranch, EditBranch,
+  getStates,
   getcities,
-  getlocationname
-
+  getlocationname,
+UpdatePhoneNUmber
 
 } = require("../../controller/owner/branch");
 
@@ -20,10 +20,10 @@ const {
 //used 
 
 router.post("/add", Validate, upload.array("images"), AddBranch);
- router.get("/getalllbranchowner", Validate, GetAllBranchOwner)
+router.get("/getalllbranchowner", Validate, GetAllBranchOwner)
 
- router.get("/getbranch/bybranchMnager", Validate, GetAllBranchByBranchId)
-
+router.get("/getbranch/bybranchMnager", Validate, GetAllBranchByBranchId)
+router.put("/update-contact", UpdatePhoneNUmber)
 
 router.get("/get", Validate, GetAllBranch)
 
