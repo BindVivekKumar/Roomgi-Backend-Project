@@ -632,51 +632,147 @@ exports.UpdateRoom = async (req, res) => {
   try {
     const { Id } = req.params;
     const updateData = req.body;
+
+    console.log("updateData:", updateData);
+
+    /* ================= 1️⃣ CHECK IN BRANCH ================= */
     const foundBranch = await propertyBranch.findOne({ "rooms._id": Id });
-    if (!foundBranch) return res.status(400).json({ success: false, message: "Branch not found for this room" });
 
-    const room = foundBranch.rooms.id(Id);
-    if (!room) return res.status(404).json({ success: false, message: "Room not found" });
+    /* =========================================================
+       CASE 1: ROOM EXISTS INSIDE BRANCH (Embedded Room)
+    ========================================================= */
+    if (foundBranch) {
+      const room = foundBranch.rooms.id(Id);
 
-    const oldCategory = room.category;
-    const oldType = room.type;
+      if (!room) {
+        return res.status(404).json({
+          success: false,
+          message: "Room not found in branch",
+        });
+      }
+
+      const oldCategory = room.category;
+      const oldType = room.type;
+
+      const allowedFields = [
+        "roomNumber", "capacity", "hoteltype", "flattype",
+        "roomtype", "renttype", "type", "city", "count",
+        "verified", "description", "notAllowed", "rules",
+        "allowedFor", "furnishedType", "vacant",
+        "availabilityStatus", "toPublish", "price",
+        "rentperday", "rentperhour", "rentperNight",
+        "category", "roomImages", "facilities",
+        "dynamicPricing" // ✅ FIX 1
+      ];
+
+      /* ===== UPDATE FIELDS ===== */
+      allowedFields.forEach(field => {
+        if (updateData[field] !== undefined) {
+          room[field] = updateData[field];
+        }
+      });
+
+      /* ===== HANDLE ARRAY SAFELY ===== */
+      if (updateData.dynamicPricing) {
+        room.dynamicPricing = updateData.dynamicPricing; // ✅ FIX 2
+      }
+
+      /* ===== HANDLE COUNT LOGIC ===== */
+      if (oldCategory !== room.category || oldType !== room.type) {
+        if (room.verified) {
+          if (oldCategory === "Pg") {
+            if (oldType === "Single") foundBranch.totalBeds--;
+            else if (oldType === "Double") foundBranch.totalBeds -= 2;
+            else foundBranch.totalBeds -= 3;
+          }
+          if (oldCategory === "Rented-Room") foundBranch.totalrentalRoom--;
+          if (oldCategory === "Hotel") foundBranch.totelhotelroom--;
+        }
+
+        if (updateData.verified) {
+          if (room.category === "Pg") {
+            if (room.type === "Single") foundBranch.totalBeds++;
+            else if (room.type === "Double") foundBranch.totalBeds += 2;
+            else foundBranch.totalBeds += 3;
+          }
+          if (room.category === "Rented-Room") foundBranch.totalrentalRoom++;
+          if (room.category === "Hotel") foundBranch.totelhotelroom++;
+        }
+      }
+
+      await foundBranch.save();
+
+      /* ===== REDIS CLEAR ===== */
+      if (redisClient) {
+        await redisClient.del("all-pg");
+
+        const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
+        if (roomKeys.length) await redisClient.del(roomKeys);
+
+        const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
+        if (branchKeys.length) await redisClient.del(branchKeys);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Branch Room Updated Successfully",
+      });
+    }
+
+    /* =========================================================
+       CASE 2: HOTEL ROOM COLLECTION
+    ========================================================= */
+    const hotelRoom = await HotelRoom.findById(Id);
+
+    if (!hotelRoom) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found",
+      });
+    }
 
     const allowedFields = [
-      "roomNumber", "capacity", "hoteltype", "flattype", "roomtype", "renttype", "type", "city",
-      "count", "verified", "description", "notAllowed", "rules", "allowedFor", "furnishedType",
-      "vacant", "availabilityStatus", "toPublish", "price", "rentperday", "rentperhour", "rentperNight",
-      "category", "roomImages", "facilities"
+      "roomNumber", "capacity", "hoteltype", "flattype",
+      "roomtype", "renttype", "type", "city",
+      "description", "rules", "allowedFor",
+      "furnishedType", "base_price", "rentperday",
+      "rentperhour", "rentperNight",
+      "category", "roomImages", "facilities",
+      "dynamicPricing" // ✅ FIX 3
     ];
 
-    allowedFields.forEach(field => { if (updateData[field] !== undefined) room[field] = updateData[field]; });
+    /* ===== UPDATE FIELDS ===== */
+    allowedFields.forEach(field => {
+      if (updateData[field] !== undefined) {
+        hotelRoom[field] = updateData[field];
+      }
+    });
 
-    if (oldCategory !== updateData.category || oldType !== updateData.type) {
-      if (room.verified) {
-        if (oldCategory === "Pg") room.type === "Single" ? foundBranch.totalBeds-- : room.type === "Double" ? foundBranch.totalBeds -= 2 : foundBranch.totalBeds -= 3;
-        if (oldCategory === "Rented-Room") foundBranch.totalrentalRoom--;
-        if (oldCategory === "Hotel") foundBranch.totelhotelroom--;
-      }
-      if (updateData.verified) {
-        if (updateData.category === "Pg") updateData.type === "Single" ? foundBranch.totalBeds++ : updateData.type === "Double" ? foundBranch.totalBeds += 2 : foundBranch.totalBeds += 3;
-        if (updateData.category === "Rented-Room") foundBranch.totalrentalRoom++;
-        if (updateData.category === "Hotel") foundBranch.totelhotelroom++;
-      }
+    /* ===== IMPORTANT: ARRAY UPDATE ===== */
+    if (updateData.dynamicPricing) {
+      hotelRoom.dynamicPricing = updateData.dynamicPricing; // ✅ FIX 4
     }
 
-    await foundBranch.save();
+    await hotelRoom.save();
 
+    console.log("Updated Hotel Room:", hotelRoom);
+
+    /* ===== REDIS CLEAR ===== */
     if (redisClient) {
-      await redisClient.del("all-pg");
-      const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
-      if (roomKeys.length) await redisClient.del(roomKeys);
-      const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
-      if (branchKeys.length) await redisClient.del(branchKeys);
+      await redisClient.del("all-hotel-rooms");
     }
 
-    return res.status(200).json({ success: true, message: "Room Updated Successfully" });
+    return res.status(200).json({
+      success: true,
+      message: "Hotel Room Updated Successfully",
+    });
+
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, message: `Server Error ${error}`, error: error.message });
+    console.error("UpdateRoom Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: `Server Error: ${error.message}`,
+    });
   }
 };
 
@@ -786,9 +882,8 @@ exports.deleteimage = async (req, res) => {
 
 exports.ownerAllroom = async (req, res) => {
   try {
-    // 1️⃣ Owner ke saare branches nikaalo
-    const branches = await PropertyBranch
-      .find({ owner: req.user.id })
+    /* ================= 1️⃣ GET ALL BRANCHES ================= */
+    const branches = await PropertyBranch.find({ owner: req.user.id });
 
     if (!branches || branches.length === 0) {
       return res.status(404).json({
@@ -796,11 +891,18 @@ exports.ownerAllroom = async (req, res) => {
         message: "No branches found for this owner",
       });
     }
-    const hotelroom=await HotelRoom.findById(branchid)
 
-    // 2️⃣ Saare rooms ek array me flatten karo
-    const allRooms = branches.flatMap(branch =>
-      branch.rooms.map(room => ({
+    /* ================= 2️⃣ EXTRACT ALL BRANCH IDS ================= */
+    const branchIds = branches.map(branch => branch._id);
+
+    /* ================= 3️⃣ GET ALL HOTEL ROOMS ================= */
+    const hotelRooms = await HotelRoom.find({
+      hotel_id: { $in: branchIds }
+    }).populate("hotel_id"); // optional (for branch details)
+
+    /* ================= 4️⃣ GET EMBEDDED ROOMS (IF EXISTS) ================= */
+    const branchRooms = branches.flatMap(branch =>
+      (branch.rooms || []).map(room => ({
         ...room.toObject(),
         branchId: branch._id,
         branchName: branch.name,
@@ -808,27 +910,36 @@ exports.ownerAllroom = async (req, res) => {
         branchAddress: branch.address,
       }))
     );
-  
 
-    // 3️⃣ Response
+    /* ================= 5️⃣ MERGE DATA ================= */
+    const allRooms = [
+      ...hotelRooms.map(room => ({
+        ...room.toObject(),
+        source: "hotelRoom"
+      })),
+      ...branchRooms.map(room => ({
+        ...room,
+        source: "branchRoom"
+      }))
+    ];
+
+    /* ================= 6️⃣ RESPONSE ================= */
     return res.status(200).json({
       success: true,
       totalBranches: branches.length,
+      totalBranchRooms: branchRooms.length,
       totalRooms: allRooms.length,
-      rooms: allRooms,
-      hotelrooms:hotelroom
+      rooms:hotelRooms.length > 0 ? hotelRooms : allRooms,
     });
 
   } catch (error) {
     console.error("Owner all room error:", error);
     return res.status(500).json({
       success: false,
-      message: `Server Error ${error}`,
+      message: `Server Error: ${error.message}`,
     });
   }
 };
-
-
 
 
 // ---------------------------
@@ -1030,57 +1141,7 @@ exports.getAllRoomOfBranch = async (req, res) => {
 // ---------------------------
 // UPDATE ROOM
 // ---------------------------
-exports.UpdateRoom = async (req, res) => {
-  try {
-    const { Id } = req.params;
-    const updateData = req.body;
-    const foundBranch = await PropertyBranch.findOne({ "rooms._id": Id });
-    if (!foundBranch) return res.status(400).json({ success: false, message: "Branch not found for this room" });
 
-    const room = foundBranch.rooms.id(Id);
-    if (!room) return res.status(404).json({ success: false, message: "Room not found" });
-
-    const oldCategory = room.category;
-    const oldType = room.type;
-
-    const allowedFields = [
-      "roomNumber", "capacity", "hoteltype", "flattype", "roomtype", "renttype", "type", "city",
-      "count", "verified", "description", "notAllowed", "rules", "allowedFor", "furnishedType",
-      "vacant", "availabilityStatus", "toPublish", "price", "rentperday", "rentperhour", "rentperNight",
-      "category", "roomImages", "facilities"
-    ];
-
-    allowedFields.forEach(field => { if (updateData[field] !== undefined) room[field] = updateData[field]; });
-
-    if (oldCategory !== updateData.category || oldType !== updateData.type) {
-      if (room.verified) {
-        if (oldCategory === "Pg") room.type === "Single" ? foundBranch.totalBeds-- : room.type === "Double" ? foundBranch.totalBeds -= 2 : foundBranch.totalBeds -= 3;
-        if (oldCategory === "Rented-Room") foundBranch.totalrentalRoom--;
-        if (oldCategory === "Hotel") foundBranch.totelhotelroom--;
-      }
-      if (updateData.verified) {
-        if (updateData.category === "Pg") updateData.type === "Single" ? foundBranch.totalBeds++ : updateData.type === "Double" ? foundBranch.totalBeds += 2 : foundBranch.totalBeds += 3;
-        if (updateData.category === "Rented-Room") foundBranch.totalrentalRoom++;
-        if (updateData.category === "Hotel") foundBranch.totelhotelroom++;
-      }
-    }
-
-    await foundBranch.save();
-
-    if (redisClient) {
-      await redisClient.del("all-pg");
-      const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
-      if (roomKeys.length) await redisClient.del(roomKeys);
-      const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
-      if (branchKeys.length) await redisClient.del(branchKeys);
-    }
-
-    return res.status(200).json({ success: true, message: "Room Updated Successfully" });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, message: `Server Error ${error}`, error: error.message });
-  }
-};
 
 // ---------------------------
 // ADD ROOM IMAGES
@@ -1126,8 +1187,18 @@ exports.getdetails = async (req, res) => {
     const { id } = req.params;
 
     const foundBranch = await PropertyBranch.findOne({ "rooms._id": id }).lean();
-    if (!foundBranch) return res.status(404).json({ success: false, message: "Branch containing the room not found" });
+    let hotelroom;
+    if (!foundBranch){
+      hotelroom=await HotelRoom.findById(id).lean();
+      if(!hotelroom){
+          return res.status(404).json({ success: false, message: "Branch containing the room not found" });
+      }
+    }
+    if(hotelroom){
+      
+    return res.status(200).json({ success: true, message: "Room details fetched successfully", room:hotelroom });
 
+    }
     const room = foundBranch.rooms.find(r => r._id.toString() === id);
     if (!room) return res.status(404).json({ success: false, message: "Room not found" });
 

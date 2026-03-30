@@ -10,7 +10,7 @@ const SignupSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ["owner", "branch-manager", "tenant", "user"],
+    enum: ["owner", "HotelOwner", "tenant", "user"],
     required: true
   },
   wishlist: [{

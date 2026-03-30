@@ -27,9 +27,7 @@ const RoomSchema = new mongoose.Schema(
     price: { type: Number, index: true },
     advancedmonth: { type: Number },
 
-    // rentperday: Number,
-    // rentperhour: Number,
-    // rentperNight: Number,
+
 
     /* ===== CATEGORY ===== */
     category: {
@@ -80,15 +78,6 @@ const RoomSchema = new mongoose.Schema(
     /* ===== LOCATION ===== */
     city: { type: String, index: true },
 
-    /* ===== SERVICES ===== */
-    // services: [
-    //   {
-    //     name: { type: String },
-    //     price: { type: Number },
-    //   },
-    // ],
-
-    /* ===== RULES & RESTRICTIONS ===== */
     rules: [
       {
         type: String,
@@ -108,12 +97,6 @@ const RoomSchema = new mongoose.Schema(
       },
     ],
 
-    // notAllowed: [
-    //   {
-    //     type: String,
-    //     enum: ["Smoking", "Alcohol", "Pets", "Visitors", "Loud Music"],
-    //   },
-    // ],
 
     /* ===== META ===== */
     allowedFor: {
@@ -142,13 +125,6 @@ const RoomSchema = new mongoose.Schema(
       status: { type: Boolean, default: false, index: true },
       date: { type: Date },
     },
-
-    /* ===== RELATION ===== */
-    // createdBy: {
-    //   type: mongoose.Schema.Types.ObjectId,
-    //   ref: "branchmanager",
-    //   index: true,
-    // },
 
     branch: {
       type: mongoose.Schema.Types.ObjectId,

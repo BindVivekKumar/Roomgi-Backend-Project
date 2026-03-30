@@ -76,27 +76,50 @@ const hotelRoomSchema = new mongoose.Schema(
             {
                 type: String,
                 enum: [
+                    // Food & Living
+                    "Food Included",
+                    "RO Water",
+                    "Kitchen",
+
+                    // Comfort & Climate
                     "AC",
-                    "Non-AC",
-                    "Bathroom",
+                    "Cooler",
+                    "Fan",
+                    "Geyser",
+                    "Heater", "Non-AC",
+
+                    // Connectivity & Power
                     "WiFi",
                     "Power Backup",
-                    "Laundry",
-                    "CCTV",
-                    "Parking",
+
+                    // Furniture & Appliances
+                    "Bed",
+
+                    "Study Table",
                     "Refrigerator",
-                    "24x7 Electricity",
+                    "Washing Machine",
                     "TV",
-                    "Balcony",
-                    "Pool Access",
-                    "Gym Access",
+
+                    // Hygiene & Services
+                    "Laundry",
+                    "Daily Cleaning",
+
+                    // Security & Safety
+                    "CCTV",
+
+
+                    // Parking & Access
+                    "Parking",
+
+
+
                 ],
             },
         ],
         furnishedType: {
             type: String,
             enum: ["Fully Furnished", "Semi Furnished", "Unfurnished"],
-            default:"Unfurnished",
+            default: "Unfurnished",
             index: true,
         },
 
@@ -134,10 +157,6 @@ const hotelRoomSchema = new mongoose.Schema(
                 price: {
                     type: Number,
                     required: true,
-                },
-                reason: {
-                    type: String, // Festival / Weekend / Surge
-                    default: "",
                 },
             },
         ],
