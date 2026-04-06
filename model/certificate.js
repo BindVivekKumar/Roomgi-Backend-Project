@@ -13,9 +13,8 @@ const CertificateSchema = new mongoose.Schema(
       required: true
     },
 
-    company: {
-      type: String,
-      required: true
+    amount: {
+      type: Number,
     },
 
     startDate: {
@@ -27,10 +26,12 @@ const CertificateSchema = new mongoose.Schema(
       type: Date,
       required: true
     },
-
     duration: {
-      type: String
-      // e.g. "3 Months"
+      type: String,
+    },
+    type: {
+      type: String,
+      enum: ["Paid", "Unpaid"]
     },
 
     certificateId: {

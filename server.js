@@ -97,7 +97,7 @@ app.use("/api/v1/property/user", require("./router/user/property"));
 app.use("/api/v1/hotel/user", require("./router/user/hotel"));
 
 // admin
-app.use("/api/v1/admin/certificate", require("./router/owner/certificate"));
+ app.use("/api/v1/admin/certificate", require("./router/admin/certificate"));
 app.use("/api/v1/property/admin", require("./router/admin/pg_details"));
 
 // common
