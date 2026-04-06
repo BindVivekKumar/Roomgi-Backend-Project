@@ -160,7 +160,74 @@ exports.getAllPg = async (req, res) => {
     });
   }
 };
+exports.getRecomendedPg = async (req, res) => {
+  try {
+    const { lng, lat } = req.query;
+    console.log("req.query:", req.query);
 
+    const recomendedPg = await PropertyBranch.aggregate([
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [parseFloat(lng), parseFloat(lat)],
+          },
+          distanceField: "distance",
+          maxDistance: 5000, // 5 km
+          spherical: true,
+          query: {
+            "rooms.verified": true,
+          },
+        },
+      },
+
+      { $unwind: "$rooms" },
+
+
+      {
+        $match: {
+          "rooms.verified": true,
+        },
+      },
+      {
+        $project: {
+          _id: "$rooms._id",
+          category: "$rooms.category",
+          allowedFor: "$rooms.allowedFor",
+          verified: "$rooms.verified",
+          occupied: "$rooms.occupied",
+          price: "$rooms.price",
+          type: "$rooms.type",
+          city: "$rooms.city",
+          furnishedType: "$rooms.furnishedType",
+          roomImages: {
+            $ifNull: [{ $arrayElemAt: ["$rooms.roomImages", 0] }, ""],
+          },
+          availabilityStatus: "$rooms.availabilityStatus",
+          branch: {
+            name: "$name",
+            phoneNumber: "$phoneNumber",
+            Propertyphoto: "$Propertyphoto",
+            streetAdress: "$streetAdress",
+            locationName: "$locationName"
+          },
+        },
+      }
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: recomendedPg,
+    });
+
+  } catch (error) {
+    console.error("getRecomendedPg Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
 
 exports.getAllhotelRooms = async (req, res) => {
   try {
@@ -263,9 +330,19 @@ exports.getpopular = async (req, res) => {
 exports.getdetails = async (req, res) => {
   try {
     const { id } = req.params;
-   
+
     // 1️⃣ Try to find the room in PropertyBranch first
-    const foundBranch = await PropertyBranch.findOne({ "rooms._id": id }).lean();
+    const foundBranch = await PropertyBranch.findOne(
+      { "rooms._id": id },
+      {
+        name: 1,
+        locationName: 1,
+        city: 1,
+        phoneNumber: 1,
+        location: 1,
+        rooms: { $elemMatch: { _id: id } }
+      }
+    ).lean();
 
     let foundHotelRoom = null;
     if (!foundBranch) {
@@ -289,21 +366,10 @@ exports.getdetails = async (req, res) => {
         message: "Branch containing the room not found",
       });
     }
-
-    // 5️⃣ Get room object from PropertyBranch if exists
-    const room = foundBranch
-      ? foundBranch.rooms.find((r) => r._id.toString() === id)
-      : null;
-
-    if (!room && !foundHotelRoom) {
-      return res.status(404).json({ success: false, message: "Room not found" });
-    }
     return res.status(200).json({
       success: true,
       message: "Room details fetched successfully",
-      room: foundHotelRoom ? foundHotelRoom : room,
-      location: foundHotelRoom ? foundHotelRoom.branch.locationName : foundBranch?.location,
-      phoneNumber:foundHotelRoom?foundHotelRoom.branch.phoneNumber:foundBranch?.phoneNumber
+      room: foundHotelRoom ? foundHotelRoom : foundBranch,
     });
   } catch (error) {
     console.error("getdetails Error:", error);

@@ -8,7 +8,8 @@ const upload = multer({ storage: multer.diskStorage({}) });
 const {
   getAllPg,
   getdetails,
-  getAllhotelRooms
+  getAllhotelRooms,
+  getRecomendedPg
 } = require("../../controller/user/property");
 const {
     servicecities,
@@ -21,6 +22,8 @@ router.get("/services-cities", servicecities);
 router.get("/get/:id", getdetails)
 
 router.get("/allpg", getAllPg)
+router.get("/getRecomendedPg", getRecomendedPg)
+
 
 router.get("/allhotelrooms", getAllhotelRooms)
 
