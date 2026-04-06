@@ -17,12 +17,12 @@ exports.createCertificate = async (req, res) => {
 
 
 
-    const prefix = "CERT-Roomgi";
+    const prefix = "CERT-ROOMGI";
     const year = new Date().getFullYear();
     const unique = crypto.randomUUID().slice(0, 6).toUpperCase();
 
     const certificateId = `${prefix}-${year}-${unique}`;
-    const qrLink = `https://www.roomgi.com/certificate/verify?id=${certificateId}`;
+    const qrLink = `https://www.roomgi.com/certificates?id=${certificateId}`;
 
 
     const certificate = await Certificate.create({
@@ -150,67 +150,61 @@ exports.downloadCertificate = async (req, res) => {
     // 🎨 COLORS
     const primaryBlue = "#0B1E3C";
     const accentGold = "#C9A24D";
-    const lightGray = "#F9F9F9";
-    const textGray = "#444444";
+    const textGray = "#555555";
+    const lightGray = "#F7F7F7";
 
     // 🟫 BACKGROUND
     doc.rect(0, 0, 842, 595).fill(lightGray);
 
-    // 🟦 BORDER
-    doc.rect(20, 20, 802, 555).lineWidth(2).stroke(accentGold);
-    doc.rect(30, 30, 782, 535).lineWidth(1).stroke(primaryBlue);
+    // 🟦 BORDER DESIGN (clean layered look)
+    doc.rect(15, 15, 812, 565).lineWidth(2).stroke(accentGold);
+    doc.rect(25, 25, 792, 545).lineWidth(1).stroke(primaryBlue);
 
-    // 🏢 HEADER
-    doc
-      .fillColor(primaryBlue)
-      .font("Helvetica-Bold")
-      .fontSize(35)
-      .text("RoomGi", 0, 80, { align: "center", characterSpacing: 2 });
-
-    doc
-      .fillColor(accentGold)
-      .fontSize(12)
-      .font("Helvetica")
-      .text("CREATIVE INTERNSHIP SOLUTIONS", 0, 120, { align: "center" });
-
-    // 🏆 TITLE
-    doc.moveDown(2);
+    // ─────────────────────────────
+    // 🏆 TITLE (TOP)
     doc
       .fillColor(primaryBlue)
       .font("Times-Bold")
-      .fontSize(42)
-      .text("CERTIFICATE OF INTERNSHIP", { align: "center" });
-
-    // 📄 SUBTITLE
-    doc.moveDown(1);
-    doc
-      .fillColor(textGray)
-      .font("Times-Italic")
-      .fontSize(18)
-      .text("This certificate is proudly presented to", {
+      .fontSize(38)
+      .text("CERTIFICATE OF INTERNSHIP", 0, 80, {
         align: "center",
       });
 
-    // 👤 NAME
-    doc.moveDown(0.5);
+    // 📄 SUBTITLE
+    doc
+      .fillColor(textGray)
+      .font("Times-Italic")
+      .fontSize(16)
+      .text("This is proudly presented to", 0, 130, {
+        align: "center",
+      });
+
+    // 👤 NAME (MAIN FOCUS)
     doc
       .fillColor(primaryBlue)
       .font("Helvetica-Bold")
       .fontSize(34)
-      .text(cert.name.toUpperCase(), { align: "center" });
+      .text(cert.name.toUpperCase(), 0, 165, {
+        align: "center",
+      });
 
-    // ✨ LINE
-    doc.moveTo(250, 335).lineTo(592, 335).lineWidth(1).stroke(accentGold);
+    // ✨ UNDERLINE (NAME)
+    doc
+      .moveTo(250, 210)
+      .lineTo(592, 210)
+      .lineWidth(1.5)
+      .stroke(accentGold);
 
-    // 📄 DESCRIPTION
-    doc.moveDown(0.5);
+    // 📌 ROLE DESCRIPTION
     doc
       .fillColor(textGray)
       .font("Times-Roman")
-      .fontSize(16)
+      .fontSize(15)
       .text(
-        `For successfully completing an internship as ${cert.role} at RoomGi Private Limited.`,
-        { align: "center" }
+        `has successfully completed internship as ${cert.role} at RoomGi Private Limited`,
+        0,
+        230,
+        { align: "center", width: 700 }
       );
 
     // 📅 DATES
@@ -219,108 +213,122 @@ exports.downloadCertificate = async (req, res) => {
 
     doc
       .fontSize(14)
-      .text(`Conducted from ${startDate} to ${endDate}`, {
+      .fillColor(primaryBlue)
+      .text(`Duration: ${startDate} - ${endDate}`, 0, 280, {
         align: "center",
       });
 
-    // 🔥 TYPE + STIPEND (NEW ADD)
-    doc.moveDown(1);
-
+    // 🔥 TYPE + STIPEND BOX STYLE
     doc
       .font("Helvetica")
-      .fontSize(14)
-      .fillColor(primaryBlue)
-      .text(`Internship Type: ${cert.type}`, {
+      .fontSize(13)
+      .fillColor(textGray)
+      .text(`Internship Type: ${cert.type}`, 0, 310, {
         align: "center",
       });
 
     if (cert.type === "Paid") {
       doc
         .font("Helvetica-Bold")
-        .fontSize(14)
-        .text(`Stipend: ${cert.amount} rs`, {
+        .fontSize(13)
+        .fillColor(primaryBlue)
+        .text(`Stipend: ${cert.amount} RS`, 0, 330, {
           align: "center",
         });
     }
 
     // ─────────────────────────────
-    // ✍️ SIGNATURE + QR
-    const footerY = 460;
+    // ✍️ SIGNATURE SECTION (LEFT)
+    const footerY = 440;
 
-    // ✍️ SIGNATURE LINE
     doc
-      .moveTo(80, footerY + 40)
-      .lineTo(280, footerY + 40)
-      .lineWidth(1)
+      .moveTo(90, footerY + 30)
+      .lineTo(280, footerY + 30)
       .stroke(primaryBlue);
 
     doc
       .fillColor(primaryBlue)
       .font("Times-BoldItalic")
-      .fontSize(18)
-      .text("Anshu Raj", 80, footerY + 15);
+      .fontSize(16)
+      .text("Anshu Raj", 90, footerY + 10);
 
     doc
       .font("Helvetica")
-      .fontSize(11)
-      .text("Managing Director, RoomGi", 80, footerY + 45);
+      .fontSize(10)
+      .fillColor(textGray)
+      .text("Managing Director", 90, footerY + 35)
+      .text("RoomGi Private Limited", 90, footerY + 48);
 
-    // 🔳 QR CODE
+    // 🔳 QR CODE (RIGHT SIDE)
     const qrImage = await QRCode.toDataURL(cert.qrLink);
 
-    doc.image(qrImage, 650, footerY - 10, { width: 80 });
+    doc.image(qrImage, 650, footerY - 10, { width: 85 });
 
     doc
-      .fillColor(textGray)
       .fontSize(9)
+      .fillColor(textGray)
       .text("Scan to Verify", 650, footerY + 75, {
-        width: 80,
+        width: 85,
         align: "center",
       });
 
     // ─────────────────────────────
-    // 📌 FOOTER INFO
+    // 📌 FOOTER BAR
     doc
-      .fillColor("#555")   
       .fontSize(9)
-      .text(`ID: ${cert.certificateId}`, 40, 565);
+      .fillColor("#666")
+      .text(`Certificate ID: ${cert.certificateId}`, 40, 565);
 
-    doc
-      .text(
-        `Issued: ${new Date(cert.issueDate).toLocaleDateString("en-IN")}`,
-        700,
-        565
-      );
+    doc.text(
+      `Issued On: ${new Date(cert.issueDate).toLocaleDateString("en-IN")}`,
+      620,
+      565
+    );
 
     doc.end();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error(error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
   }
 };
-
 exports.ViewCertificates = async (req, res) => {
   try {
-
     const id = req.query.id?.trim();
-    console.log(id)
+
+    // ❌ No ID
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Certificate ID is required"
+      });
+    }
+
+    // ✅ Case-insensitive match (BEST WAY)
     const certificate = await Certificate.findOne({
-      certificateId: new RegExp(`^${id}$`, "i")
+      certificateId: id.toUpperCase()
     });
+
     if (!certificate) {
       return res.status(404).json({
         success: false,
         message: "Certificate not found"
       });
     }
+
+    // ✅ Success
     res.status(200).json({
       success: true,
       data: certificate
     });
+
   } catch (error) {
+    console.error("Verify Error:", error.message);
+
     res.status(500).json({
       success: false,
-      message: "Error fetching certificates",
-      error: error.message
+      message: "Server error",
     });
   }
 };
