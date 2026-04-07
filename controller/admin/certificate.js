@@ -192,7 +192,7 @@ exports.downloadCertificate = async (req, res) => {
       .font("Times-Roman")
       .fontSize(15)
       .text(
-        ` Student of ${cert.name} (${cert.college || "________ College"}) has successfully completed an internship as ${cert.role} at RoomGi Private Limited. During this period, the candidate demonstrated strong technical skills, dedication, and professionalism. ${cert.description ||
+        ` Student of (${cert.college || "________ College"}) has successfully completed an internship as ${cert.role} at RoomGi Private Limited. During this period, the candidate demonstrated strong technical skills, dedication, and professionalism. ${cert.description ||
         "The intern actively contributed to real-world projects, collaborated effectively with the team, and showcased excellent problem-solving abilities along with a strong work ethic."
         }`,
         100,
