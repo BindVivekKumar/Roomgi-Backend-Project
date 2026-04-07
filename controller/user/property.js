@@ -10,6 +10,7 @@ exports.getAllPg = async (req, res) => {
   try {
     const { lat, lng, category } = req.query;
     console.log(req.query);
+    let counting = 0;
 
     const hasLocation =
       lat &&
@@ -52,7 +53,6 @@ exports.getAllPg = async (req, res) => {
         { $count: "totalRooms" }
       ]);
 
-      const count = totalrooms[0]?.totalRooms || 0;
       /* =========================
          CASE 1: LOCATION GIVEN → NEAREST
          ========================= */
@@ -127,7 +127,7 @@ exports.getAllPg = async (req, res) => {
         pipeline.push({ $sort: { distanceInKm: 1 } });
       } else {
         // 🔥 RANDOM VERIFIED PGs
-        pipeline.push({ $sample: { size: 10 } });
+        pipeline.push({ $sample: { size: 16 } });
       }
 
       /* =========================
@@ -136,14 +136,24 @@ exports.getAllPg = async (req, res) => {
       if (hasLocation) {
         pipeline.push({ $limit: 10 });
       }
+      const allrooms=await PropertyBranch.aggregate(pipeline)
 
-      const allrooms = await PropertyBranch.aggregate(pipeline);
+      const totalRoomsCount = await PropertyBranch.aggregate([
+        { $unwind: "$rooms" },
+        { $match: { "rooms.verified": true } },
+        { $count: "totalRooms" }
+      ]);
 
-      // console.log("PG COUNT:", allrooms.length);
+      const counting = totalRoomsCount[0]?.totalRooms || 0;
+
+      const totalVerifiedProperties = await PropertyBranch.countDocuments({
+        "rooms.verified": true
+      });
 
       return res.status(200).json({
         success: true,
-        count: count,
+        count: counting,
+        property: totalVerifiedProperties,
         message: hasLocation
           ? "Nearest PGs fetched successfully"
           : "Random verified PGs fetched successfully",
