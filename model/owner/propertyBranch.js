@@ -41,7 +41,7 @@ const RoomSchema = new mongoose.Schema(
 
     flattype: {
       type: String,
-      enum: ["1Rk", "1BHK", "2BHK", "3BHK", "4BHK", "5BHK"],
+      enum: ["1RK", "1BHK", "2BHK", "3BHK", "4BHK", "5BHK"],
       required: false,
     },
 
