@@ -134,7 +134,7 @@ exports.getAllPg = async (req, res) => {
          LIMIT
          ========================= */
       if (hasLocation) {
-        pipeline.push({ $limit: 10 });
+        pipeline.push({ $limit: 16 });
       }
       const allrooms=await PropertyBranch.aggregate(pipeline)
 
