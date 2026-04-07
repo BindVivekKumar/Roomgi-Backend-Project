@@ -39,6 +39,12 @@ const CertificateSchema = new mongoose.Schema(
       required: true,
       unique: true
     },
+    college: {
+      type: String,
+    },
+    description: {
+      type: String,
+    },
 
     qrLink: {
       type: String,

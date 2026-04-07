@@ -11,7 +11,7 @@ exports.createCertificate = async (req, res) => {
       role,
       startDate,
       endDate,
-      type,
+      type, college, description,
       amount
     } = req.body;
 
@@ -31,7 +31,7 @@ exports.createCertificate = async (req, res) => {
       startDate,
       endDate,
       type,
-      amount,
+      amount, description, college,
       certificateId: certificateId,
       qrLink: qrLink
     });
@@ -156,55 +156,48 @@ exports.downloadCertificate = async (req, res) => {
     // 🟫 BACKGROUND
     doc.rect(0, 0, 842, 595).fill(lightGray);
 
-    // 🟦 BORDER DESIGN (clean layered look)
+    // 🟦 BORDER
     doc.rect(15, 15, 812, 565).lineWidth(2).stroke(accentGold);
     doc.rect(25, 25, 792, 545).lineWidth(1).stroke(primaryBlue);
 
-    // ─────────────────────────────
-    // 🏆 TITLE (TOP)
+    // 🏆 TITLE
     doc
       .fillColor(primaryBlue)
       .font("Times-Bold")
-      .fontSize(38)
-      .text("CERTIFICATE OF INTERNSHIP", 0, 80, {
-        align: "center",
-      });
+      .fontSize(36)
+      .text("CERTIFICATE OF INTERNSHIP", 0, 70, { align: "center" });
 
     // 📄 SUBTITLE
     doc
       .fillColor(textGray)
       .font("Times-Italic")
       .fontSize(16)
-      .text("This is proudly presented to", 0, 130, {
+      .text("This certificate is proudly awarded to", 0, 120, {
         align: "center",
       });
 
-    // 👤 NAME (MAIN FOCUS)
+    // 👤 NAME
     doc
       .fillColor(primaryBlue)
       .font("Helvetica-Bold")
-      .fontSize(34)
-      .text(cert.name.toUpperCase(), 0, 165, {
-        align: "center",
-      });
+      .fontSize(32)
+      .text(cert.name.toUpperCase(), 0, 155, { align: "center" });
 
-    // ✨ UNDERLINE (NAME)
-    doc
-      .moveTo(250, 210)
-      .lineTo(592, 210)
-      .lineWidth(1.5)
-      .stroke(accentGold);
+    // UNDERLINE
+    doc.moveTo(250, 195).lineTo(592, 195).lineWidth(1.5).stroke(accentGold);
 
-    // 📌 ROLE DESCRIPTION
+    // 📌 MAIN PARAGRAPH (Perfect wording + spacing)
     doc
       .fillColor(textGray)
       .font("Times-Roman")
       .fontSize(15)
       .text(
-        `has successfully completed internship as ${cert.role} at RoomGi Private Limited`,
-        0,
+        `${cert.name} (${cert.college || "________ College"}) has successfully completed an internship as ${cert.role} at RoomGi Private Limited. During this period, the candidate demonstrated strong technical skills, dedication, and professionalism. ${cert.description ||
+        "The intern actively contributed to real-world projects, collaborated effectively with the team, and showcased excellent problem-solving abilities along with a strong work ethic."
+        }`,
+        100,
         230,
-        { align: "center", width: 700 }
+        { align: "center", width: 640, lineGap: 4 }
       );
 
     // 📅 DATES
@@ -214,16 +207,15 @@ exports.downloadCertificate = async (req, res) => {
     doc
       .fontSize(14)
       .fillColor(primaryBlue)
-      .text(`Duration: ${startDate} - ${endDate}`, 0, 280, {
+      .text(`Duration: ${startDate} - ${endDate}`, 0, 330, {
         align: "center",
       });
 
-    // 🔥 TYPE + STIPEND BOX STYLE
+    // 💼 TYPE
     doc
-      .font("Helvetica")
       .fontSize(13)
       .fillColor(textGray)
-      .text(`Internship Type: ${cert.type}`, 0, 310, {
+      .text(`Internship Type: ${cert.type}`, 0, 355, {
         align: "center",
       });
 
@@ -232,36 +224,39 @@ exports.downloadCertificate = async (req, res) => {
         .font("Helvetica-Bold")
         .fontSize(13)
         .fillColor(primaryBlue)
-        .text(`Stipend: ${cert.amount} RS`, 0, 330, {
+        .text(`Stipend: ₹${cert.amount}`, 0, 375, {
           align: "center",
         });
     }
 
-    // ─────────────────────────────
-    // ✍️ SIGNATURE SECTION (LEFT)
     const footerY = 440;
+    const lineY = footerY + 20;
 
-    doc
-      .moveTo(90, footerY + 30)
-      .lineTo(280, footerY + 30)
-      .stroke(primaryBlue);
 
+    // ✅ Signature Image (proper overlap + alignment)
+    doc.save();
+
+  
+
+    doc.restore();
+
+    // ✅ Name (aligned with line)
     doc
       .fillColor(primaryBlue)
-      .font("Times-BoldItalic")
-      .fontSize(16)
-      .text("Anshu Raj", 90, footerY + 10);
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text("Anshu Raj", 140, footerY + 30);
 
+    // ✅ Role
     doc
       .font("Helvetica")
       .fontSize(10)
       .fillColor(textGray)
-      .text("Managing Director", 90, footerY + 35)
-      .text("RoomGi Private Limited", 90, footerY + 48);
+      .text("Managing Director", 140, footerY + 45)
+      .text("RoomGi Private Limited", 140, footerY + 58);
 
-    // 🔳 QR CODE (RIGHT SIDE)
+    // 🔳 QR CODE
     const qrImage = await QRCode.toDataURL(cert.qrLink);
-
     doc.image(qrImage, 650, footerY - 10, { width: 85 });
 
     doc
@@ -272,8 +267,7 @@ exports.downloadCertificate = async (req, res) => {
         align: "center",
       });
 
-    // ─────────────────────────────
-    // 📌 FOOTER BAR
+    // 📌 FOOTER
     doc
       .fontSize(9)
       .fillColor("#666")
@@ -428,7 +422,7 @@ exports.ViewCertificates = async (req, res) => {
 //       .font("Helvetica-Bold")
 //       .fontSize(12)
 //       .fillColor("#222")
-//      .text("Program Mentor", 80, footerY - 10); 
+//      .text("Program Mentor", 80, footerY - 10);
 
 //     doc
 //       .font("Helvetica")
