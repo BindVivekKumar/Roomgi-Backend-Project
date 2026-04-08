@@ -223,18 +223,16 @@ exports.EditBranch = async (req, res) => {
 // ----------------------
 exports.DeleteBranch = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const { id: branchId } = req.body;
+    // const userId = req.user._id;
+    const {  branchId } = req.body;
 
-    const foundBranch = await PropertyBranch.findById(branchId).select(
-      "owner occupiedRoom rooms"
-    );
+    const foundBranch = await PropertyBranch.findById(branchId);
 
     if (!foundBranch)
       return res.status(404).json({ success: false, message: "Branch not found" });
 
-    if (!foundBranch.owner.equals(userId))
-      return res.status(403).json({ success: false, message: "Unauthorized" });
+    // if (!foundBranch.owner.equals(userId))
+    //   return res.status(403).json({ success: false, message: "Unauthorized" });
 
     if (foundBranch.occupiedRoom.length > 0)
       return res
@@ -393,9 +391,9 @@ exports.getalllistedandunlisted = async (req, res) => {
       })
       .exec();
 
-    const listedRooms = branches.flatMap(branch =>
-      branch.rooms.filter(room => room.toPublish?.status === true)
-    );
+    // const listedRooms = branches.flatMap(branch =>
+    //   branch.rooms.filter(room => room.toPublish?.status === true)
+    // );
 
     const unlistedRooms = branches.flatMap(branch =>
       branch.rooms.filter(room => room.toPublish?.status === false)
@@ -404,7 +402,7 @@ exports.getalllistedandunlisted = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Fetched listed and unlisted rooms successfully",
-      listedRooms,
+      // listedRooms,
       unlistedRooms
     });
 

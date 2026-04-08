@@ -63,7 +63,7 @@ router.post("/listpg", listPgRoom)
 
 
 router.patch("/edit/:branchId", Validate, EditBranch)
-router.delete("/DeleteBranch", Validate, DeleteBranch)
+router.delete("/DeleteBranch", DeleteBranch)
 
 
 

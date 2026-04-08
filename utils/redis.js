@@ -2,14 +2,28 @@
 const { createClient } = require("redis");
 
 const client = createClient({
-  url: "redis://default:GAwEUzyB65JRVGdIaXCwomLPlGudHCwu@redis-13152.c270.us-east-1-3.ec2.cloud.redislabs.com:13152"
+  url: process.env.REDIS_URL, // 🔥 hardcode mat karo
 });
 
-client.on("error", (err) => console.log("Redis Client Error", err));
+client.on("error", (err) => {
+  console.log("❌ Redis Error:", err.message);
+});
 
-(async () => {
-  await client.connect();
-  console.log("✅ Connected to Redis");
-})();
+let isRedisConnected = false;
 
-module.exports = client;
+async function connectRedis() {
+  try {
+    await client.connect();
+    isRedisConnected = true;
+    console.log("✅ Redis Connected");
+  } catch (err) {
+    console.log("⚠️ Redis failed, continuing without Redis");
+  }
+}
+
+connectRedis();
+
+module.exports = {
+  client,
+  isRedisConnected,
+};
