@@ -1,6 +1,6 @@
 const Location = require("../../model/admin/location");
 
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 const PropertyBranch = require("../../model/owner/propertyBranch.js")
 const Signup = require("../../model/user")
 
@@ -27,7 +27,7 @@ exports.GetAllBranch = async (req, res) => {
     const allbranch = await PropertyBranch.find({ owner: req.user._id }).lean();
   
 
-    if (redisClient) await redisClient.setEx(cachedKey, 3600, JSON.stringify(allbranch));
+    // if (redisClient) await redisClient.setEx(cachedKey, 3600, JSON.stringify(allbranch));
 
     return res.status(200).json({ success: true, message: "All branches retrieved", allbranch });
   } catch (error) {
@@ -202,15 +202,15 @@ exports.EditBranch = async (req, res) => {
     const updatedBranch = await PropertyBranch.findByIdAndUpdate(branchId, payload, { new: true });
 
     // Efficient Redis cache invalidation
-    if (redisClient) {
-      const patterns = ["branches-*", "room-*", "rooms-all", `branchManagerComplaints-${branchId}`, `branchComplaints-${branchId}`];
-      const pipeline = redisClient.pipeline();
-      for (const pattern of patterns) {
-        const keys = await redisClient.keys(pattern);
-        keys.forEach(k => pipeline.del(k));
-      }
-      await pipeline.exec();
-    }
+    // if (redisClient) {
+    //   const patterns = ["branches-*", "room-*", "rooms-all", `branchManagerComplaints-${branchId}`, `branchComplaints-${branchId}`];
+    //   const pipeline = redisClient.pipeline();
+    //   for (const pattern of patterns) {
+    //     const keys = await redisClient.keys(pattern);
+    //     keys.forEach(k => pipeline.del(k));
+    //   }
+    //   await pipeline.exec();
+    // }
 
     return res.status(200).json({ success: true, message: "Branch updated", branch: updatedBranch });
   } catch (error) {
@@ -355,9 +355,9 @@ exports.AddBranch = async (req, res) => {
       locationType: bestResult.geometry.location_type,
     });
 
-    if (redisClient) {
-      await redisClient.del(`branches-${req.user._id}-allbranch`);
-    }
+    // if (redisClient) {
+    //   await redisClient.del(`branches-${req.user._id}-allbranch`);
+    // }
 
     return res.status(200).json({
       success: true,
@@ -466,14 +466,14 @@ exports.listPgRoom = async (req, res) => {
     await branch.save();
 
     // Clear relevant Redis caches
-    if (redisClient) {
-      await redisClient.del("all-pg");
-      await redisClient.del(`branches-${branchId}-allbranch`);
-      const roomKeys = await redisClient.keys("room-*");
-      for (const key of roomKeys) await redisClient.del(key);
-      const branchKeys = await redisClient.keys("branches-*");
-      for (const key of branchKeys) await redisClient.del(key);
-    }
+    // if (redisClient) {
+    //   await redisClient.del("all-pg");
+    //   await redisClient.del(`branches-${branchId}-allbranch`);
+    //   const roomKeys = await redisClient.keys("room-*");
+    //   for (const key of roomKeys) await redisClient.del(key);
+    //   const branchKeys = await redisClient.keys("branches-*");
+    //   for (const key of branchKeys) await redisClient.del(key);
+    // }
 
     return res.status(200).json({
       success: true,
@@ -514,9 +514,9 @@ exports.GetAllBranchOwner = async (req, res) => {
       .lean();
 
     // Cache result
-    if (redisClient) {
-      await redisClient.setEx(cacheKey, 3600, JSON.stringify(allbranch));
-    }
+    // if (redisClient) {
+    //   await redisClient.setEx(cacheKey, 3600, JSON.stringify(allbranch));
+    // }
 
     return res.status(200).json({
       success: true,

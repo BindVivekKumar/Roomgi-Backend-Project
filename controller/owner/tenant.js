@@ -3,7 +3,7 @@
 const Tenant = require("../../model/owner/tenants")
 const Payment = require("../../model/payment")
 const PropertyBranch = require("../../model/owner/propertyBranch")
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 const bcrypt = require("bcrypt")
 const Signup = require("../../model/user")
 
@@ -383,29 +383,29 @@ exports.MarkTenantInactive = async (req, res) => {
     console.log("✅ Database updated");
 
     /* ---------------- REDIS CLEAR ---------------- */
-    if (redisClient) {
-      console.log("🧹 Clearing Redis cache");
+    // if (redisClient) {
+    //   console.log("🧹 Clearing Redis cache");
 
-      await redisClient.del("all-pg");
+    //   await redisClient.del("all-pg");
 
-      const tenantKeys = await redisClient.keys("tenant-*");
-      if (tenantKeys.length) {
-        await redisClient.del(tenantKeys);
-        console.log("🗑 Tenant cache cleared");
-      }
+    //   const tenantKeys = await redisClient.keys("tenant-*");
+    //   if (tenantKeys.length) {
+    //     await redisClient.del(tenantKeys);
+    //     console.log("🗑 Tenant cache cleared");
+    //   }
 
-      const branchKeys = await redisClient.keys("branches-*");
-      if (branchKeys.length) {
-        await redisClient.del(branchKeys);
-        console.log("🗑 Branch cache cleared");
-      }
+    //   const branchKeys = await redisClient.keys("branches-*");
+    //   if (branchKeys.length) {
+    //     await redisClient.del(branchKeys);
+    //     console.log("🗑 Branch cache cleared");
+    //   }
 
-      const roomKeys = await redisClient.keys("room-*");
-      if (roomKeys.length) {
-        await redisClient.del(roomKeys);
-        console.log("🗑 Room cache cleared");
-      }
-    }
+    //   const roomKeys = await redisClient.keys("room-*");
+    //   if (roomKeys.length) {
+    //     await redisClient.del(roomKeys);
+    //     console.log("🗑 Room cache cleared");
+    //   }
+    // }
 
     console.log("🎉 Checkout completed successfully");
 
@@ -459,18 +459,18 @@ exports.UpdateTenant = async (req, res) => {
         // ------------------------------
         // Clear related Redis caches
         // ------------------------------
-        if (redisClient) {
-            const tenantKeys = await redisClient.keys(`tenant-*`);
-            if (tenantKeys.length) await redisClient.del(tenantKeys);
+        // if (redisClient) {
+        //     const tenantKeys = await redisClient.keys(`tenant-*`);
+        //     if (tenantKeys.length) await redisClient.del(tenantKeys);
 
-            const branchKeys = await redisClient.keys(`branches-*`);
-            if (branchKeys.length) await redisClient.del(branchKeys);
+        //     const branchKeys = await redisClient.keys(`branches-*`);
+        //     if (branchKeys.length) await redisClient.del(branchKeys);
 
-            const roomKeys = await redisClient.keys(`room-*`);
-            if (roomKeys.length) await redisClient.del(roomKeys);
+        //     const roomKeys = await redisClient.keys(`room-*`);
+        //     if (roomKeys.length) await redisClient.del(roomKeys);
 
-            await redisClient.del("all-pg");
-        }
+        //     await redisClient.del("all-pg");
+        // }
 
         return res.status(200).json({ success: true, message: "Tenant updated successfully", tenant: foundTenant });
 
@@ -489,10 +489,10 @@ exports.GetTenantById = async (req, res) => {
         const cachedKey = `tenant-${req.user._id}-byid-${id}`;
 
         // 1️⃣ Check Redis cache first
-        const cachedData = await redisClient.get(cachedKey);
-        if (cachedData) {
-            return res.status(200).json({ success: true, message: "Tenant fetched from cache cefac", ...JSON.parse(cachedData) });
-        }
+        // const cachedData = await redisClient.get(cachedKey);
+        // if (cachedData) {
+        //     return res.status(200).json({ success: true, message: "Tenant fetched from cache cefac", ...JSON.parse(cachedData) });
+        // }
 
         // 2️⃣ Fetch from DB
         const foundTenant = await Tenant.findById(id).populate("tenantId");
@@ -502,7 +502,7 @@ exports.GetTenantById = async (req, res) => {
         const responseData = { foundTenant };
 
         // 3️⃣ Cache in Redis for 1 hour
-        await redisClient.set(cachedKey, JSON.stringify(responseData), { EX: 3600 });
+        // await redisClient.set(cachedKey, JSON.stringify(responseData), { EX: 3600 });
 
         return res.status(200).json({ success: true, message: "Tenant fetched successfully", ...responseData });
 
@@ -530,10 +530,10 @@ exports.AddRentTenants = async (req, res) => {
         await tenant.save();
 
         // Clear cache
-        if (redisClient) {
-            const tenantKeys = await redisClient.keys(`tenant-*`);
-            if (tenantKeys.length) await redisClient.del(tenantKeys);
-        }
+        // if (redisClient) {
+        //     const tenantKeys = await redisClient.keys(`tenant-*`);
+        //     if (tenantKeys.length) await redisClient.del(tenantKeys);
+        // }
 
         return res.status(200).json({ success: true, message: "Payment recorded successfully", tenant });
 
@@ -551,11 +551,11 @@ exports.GetTenantsByBranchId = async (req, res) => {
         const { id } = req.params;
         const cachedKey = `tenant-branch-${id}`;
 
-        const cachedData = await redisClient.get(cachedKey);
+        // const cachedData = await redisClient.get(cachedKey);
         // if (cachedData) return res.status(200).json({ success: true, message: "Tenants fetched from cacheerercv", tenants: JSON.parse(cachedData) });
 
         const tenants = await Tenant.find({ branch: id });
-        await redisClient.set(cachedKey, JSON.stringify(tenants), { EX: 3600 });
+        // await redisClient.set(cachedKey, JSON.stringify(tenants), { EX: 3600 });
 
         return res.status(200).json({ success: true, message: "All tenants fetched successfully", tenants });
 
@@ -750,17 +750,17 @@ exports.BookingDetails = async (req, res) => {
     });
 
     /* ================= CACHE RESULT ================= */
-    if (redisClient) {
-      try {
-        await redisClient.setEx(
-          cacheKey,
-          600, // 10 minutes
-          JSON.stringify(filteredBookings)
-        );
-      } catch (err) {
-        console.warn("⚠ Redis cache failed:", err.message);
-      }
-    }
+    // if (redisClient) {
+    //   try {
+    //     await redisClient.setEx(
+    //       cacheKey,
+    //       600, // 10 minutes
+    //       JSON.stringify(filteredBookings)
+    //     );
+    //   } catch (err) {
+    //     console.warn("⚠ Redis cache failed:", err.message);
+    //   }
+    // }
 
     /* ================= RESPONSE ================= */
     return res.status(200).json({

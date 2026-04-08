@@ -7,7 +7,7 @@ const Tenant = require("../../model/owner/tenants")
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const Signup = require("../../model/user")
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 const Review = require("../../model/user/review")
 const mongoose = require("mongoose")
 
@@ -86,15 +86,15 @@ exports.createreview = async (req, res) => {
     session.endSession();
 
     // 5️⃣ Redis cache invalidation
-    if (redisClient?.isOpen) {
-      await redisClient.del("all-pg");
+    // if (redisClient?.isOpen) {
+    //   await redisClient.del("all-pg");
 
-      const tenantKeys = await redisClient.keys(`tenant-${userId}-*`);
-      const branchKeys = await redisClient.keys(`branch-${branch._id}-*`);
+    //   const tenantKeys = await redisClient.keys(`tenant-${userId}-*`);
+    //   const branchKeys = await redisClient.keys(`branch-${branch._id}-*`);
 
-      if (tenantKeys.length) await redisClient.del(tenantKeys);
-      if (branchKeys.length) await redisClient.del(branchKeys);
-    }
+    //   if (tenantKeys.length) await redisClient.del(tenantKeys);
+    //   if (branchKeys.length) await redisClient.del(branchKeys);
+    // }
 
     const room = branch.rooms[0];
 

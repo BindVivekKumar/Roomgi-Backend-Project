@@ -1,5 +1,5 @@
 
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 const PropertyBranch = require("../../model/owner/propertyBranch.js")
 
 const branchmanager = require("../../model/owner/branchmanager.js")
@@ -40,9 +40,9 @@ exports.DeleteProperty = async (req, res) => {
 
     // Delete property
     const deletedProperty = await PropertyBranch.findByIdAndDelete(id);
-    if (redisClient) {
-      redisClient.del(`branches-${req.user.id}-allbranch`);
-    }
+    // if (redisClient) {
+    //   redisClient.del(`branches-${req.user.id}-allbranch`);
+    // }
 
     if (!deletedProperty) {
       return res.status(404).json({

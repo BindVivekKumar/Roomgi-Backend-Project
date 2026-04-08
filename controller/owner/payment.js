@@ -3,7 +3,7 @@ const PropertyBranch = require("../../model/owner/propertyBranch")
 const Expense = require("../../model/owner/expenses")
 const Tenant = require("../../model/owner/tenants")
 
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 const mongoose = require("mongoose")
 
 
@@ -16,16 +16,16 @@ exports.getAllbranchPayments = async (req, res) => {
         const cacheKey = `payment-${managerId}`;
 
         // 1️⃣ Check cache
-        if (redisClient) {
-            const cached = await redisClient.get(cacheKey);
-            if (cached) {
-                return res.status(200).json({
-                    success: true,
-                    message: "Payment collection report (from cache)",
-                    allpayment: JSON.parse(cached),
-                });
-            }
-        }
+        // if (redisClient) {
+        //     const cached = await redisClient.get(cacheKey);
+        //     if (cached) {
+        //         return res.status(200).json({
+        //             success: true,
+        //             message: "Payment collection report (from cache)",
+        //             allpayment: JSON.parse(cached),
+        //         });
+        //     }
+        // }
 
         // 2️⃣ Get branches
         const branches = await PropertyBranch.find({ branchmanager: managerId }).select("_id");
@@ -42,9 +42,9 @@ exports.getAllbranchPayments = async (req, res) => {
             .lean(); // lean reduces memory overhead
 
         // 4️⃣ Save cache (1 hour)
-        if (redisClient) {
-            await redisClient.setEx(cacheKey, 3600, JSON.stringify(allpayment));
-        }
+        // if (redisClient) {
+        //     await redisClient.setEx(cacheKey, 3600, JSON.stringify(allpayment));
+        // }
 
         // 5️⃣ Response
         return res.status(200).json({

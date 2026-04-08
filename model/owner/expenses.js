@@ -11,7 +11,6 @@ const expensesSchema = new mongoose.Schema(
     branchId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PropertyBranch",
-      index: true,
     },
 
     amount: {

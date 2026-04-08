@@ -4,7 +4,7 @@
 
 
 
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 const propertyBranch = require("../../model/owner/propertyBranch.js")
 const PropertyBranch = require("../../model/owner/propertyBranch.js")
 const sendaddroommail = require("../../template/roomadd.js")
@@ -489,13 +489,13 @@ exports.DeleteRoom = async (req, res) => {
     await foundBranch.save();
 
     // 5️⃣ Redis cache cleanup
-    if (redisClient) {
-      await redisClient.del("all-pg");
-      const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
-      if (roomKeys.length) await redisClient.del(roomKeys);
-      const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
-      if (branchKeys.length) await redisClient.del(branchKeys);
-    }
+    // if (redisClient) {
+    //   await redisClient.del("all-pg");
+    //   const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
+    //   if (roomKeys.length) await redisClient.del(roomKeys);
+    //   const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
+    //   if (branchKeys.length) await redisClient.del(branchKeys);
+    // }
 
     // 6️⃣ Send deletion email via worker/queue
     if (userId) {
@@ -703,15 +703,15 @@ exports.UpdateRoom = async (req, res) => {
       await foundBranch.save();
 
       /* ===== REDIS CLEAR ===== */
-      if (redisClient) {
-        await redisClient.del("all-pg");
+      // if (redisClient) {
+      //   await redisClient.del("all-pg");
 
-        const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
-        if (roomKeys.length) await redisClient.del(roomKeys);
+      //   const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
+      //   if (roomKeys.length) await redisClient.del(roomKeys);
 
-        const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
-        if (branchKeys.length) await redisClient.del(branchKeys);
-      }
+      //   const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
+      //   if (branchKeys.length) await redisClient.del(branchKeys);
+      // }
 
       return res.status(200).json({
         success: true,
@@ -758,9 +758,9 @@ exports.UpdateRoom = async (req, res) => {
     console.log("Updated Hotel Room:", hotelRoom);
 
     /* ===== REDIS CLEAR ===== */
-    if (redisClient) {
-      await redisClient.del("all-hotel-rooms");
-    }
+    // if (redisClient) {
+    //   await redisClient.del("all-hotel-rooms");
+    // }
 
     return res.status(200).json({
       success: true,
@@ -799,13 +799,13 @@ exports.addRoomImages = async (req, res) => {
     room.roomImages.push(...uploadedUrls);
     await foundBranch.save();
 
-    if (redisClient) {
-      await redisClient.del("all-pg");
-      const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
-      if (roomKeys.length) await redisClient.del(roomKeys);
-      const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
-      if (branchKeys.length) await redisClient.del(branchKeys);
-    }
+    // if (redisClient) {
+    //   await redisClient.del("all-pg");
+    //   const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
+    //   if (roomKeys.length) await redisClient.del(roomKeys);
+    //   const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
+    //   if (branchKeys.length) await redisClient.del(branchKeys);
+    // }
 
     return res.status(200).json({ success: true, message: "Images added successfully", roomImages: room.roomImages });
   } catch (err) {
@@ -860,9 +860,9 @@ exports.deleteimage = async (req, res) => {
 
     // Invalidate Redis cache for this room
     const cacheKey = `room-${foundBranch._id}-image`;
-    if (redisClient) {
-      await redisClient.del(cacheKey);
-    }
+    // if (redisClient) {
+    //   await redisClient.del(cacheKey);
+    // }
 
     return res.status(200).json({
       success: true,
@@ -1002,13 +1002,13 @@ exports.DeleteRoom = async (req, res) => {
     await foundBranch.save();
 
     // 5️⃣ Redis cache cleanup
-    if (redisClient) {
-      await redisClient.del("all-pg");
-      const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
-      if (roomKeys.length) await redisClient.del(roomKeys);
-      const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
-      if (branchKeys.length) await redisClient.del(branchKeys);
-    }
+    // if (redisClient) {
+    //   await redisClient.del("all-pg");
+    //   const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
+    //   if (roomKeys.length) await redisClient.del(roomKeys);
+    //   const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
+    //   if (branchKeys.length) await redisClient.del(branchKeys);
+    // }
 
     // 6️⃣ Send deletion email via worker/queue
     if (userId) {
@@ -1166,13 +1166,13 @@ exports.addRoomImages = async (req, res) => {
     room.roomImages.push(...uploadedUrls);
     await foundBranch.save();
 
-    if (redisClient) {
-      await redisClient.del("all-pg");
-      const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
-      if (roomKeys.length) await redisClient.del(roomKeys);
-      const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
-      if (branchKeys.length) await redisClient.del(branchKeys);
-    }
+    // if (redisClient) {
+    //   await redisClient.del("all-pg");
+    //   const roomKeys = await redisClient.keys(`room-${foundBranch._id}-*`);
+    //   if (roomKeys.length) await redisClient.del(roomKeys);
+    //   const branchKeys = await redisClient.keys(`branches-${foundBranch._id}-*`);
+    //   if (branchKeys.length) await redisClient.del(branchKeys);
+    // }
 
     return res.status(200).json({ success: true, message: "Images added successfully", roomImages: room.roomImages });
   } catch (err) {
@@ -1204,7 +1204,7 @@ exports.getdetails = async (req, res) => {
 
 
     const cacheKey = `room-${foundBranch._id}-getdetails`;
-    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room, foundBranch.location));
+    // if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(room, foundBranch.location));
 
     return res.status(200).json({ success: true, message: "Room details fetched successfully", room, location: foundBranch.location });
   } catch (error) {
@@ -1260,9 +1260,9 @@ exports.deleteimage = async (req, res) => {
 
     // Invalidate Redis cache for this room
     const cacheKey = `room-${foundBranch._id}-image`;
-    if (redisClient) {
-      await redisClient.del(cacheKey);
-    }
+    // if (redisClient) {
+    //   await redisClient.del(cacheKey);
+    // }
 
     return res.status(200).json({
       success: true,

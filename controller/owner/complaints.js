@@ -2,7 +2,7 @@
 const mongoose = require("mongoose");
 
 const Complaint = require("../../model/user/complaints");
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 
 const PropertyBranch = require("../../model/owner/propertyBranch");
 
@@ -11,7 +11,7 @@ const PropertyBranch = require("../../model/owner/propertyBranch");
 
 
 async function invalidateCaches({ managerId, tenantId, branchId }) {
-  if (!redisClient) return;
+  // if (!redisClient) return;
 
   console.log("🧹 INVALIDATING CACHES...");
   
@@ -23,16 +23,16 @@ async function invalidateCaches({ managerId, tenantId, branchId }) {
 
   try {
     // 🔥 Invalidate by deleting specific keys or incrementing version
-    for (const pattern of keysToDelete) {
-       const keys = await redisClient.keys(pattern);
-       if (keys.length > 0) await redisClient.del(keys);
-    }
+    // for (const pattern of keysToDelete) {
+    //    const keys = await redisClient.keys(pattern);
+    //    if (keys.length > 0) await redisClient.del(keys);
+    // }
 
     // Version increment for complex status/category filters
-    if (managerId) {
-      await redisClient.incr(`complaint-status-version:${managerId}`);
-      await redisClient.incr(`complaint-category-version:${managerId}`);
-    }
+    // if (managerId) {
+    //   await redisClient.incr(`complaint-status-version:${managerId}`);
+    //   await redisClient.incr(`complaint-category-version:${managerId}`);
+    // }
   } catch (err) {
     console.error("Cache Invalidation Error:", err);
   }
@@ -48,12 +48,12 @@ exports.getAllComplaintsForManager = async (req, res) => {
     // Dynamic Cache Key based on cursor
     const cacheKey = `branchManagerComplaints:${managerId}:v1:${cursor || 'start'}:${limit}`;
 
-    if (redisClient) {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        return res.json({ success: true, ...JSON.parse(cached), source: "cache" });
-      }
-    }
+    // if (redisClient) {
+    //   const cached = await redisClient.get(cacheKey);
+    //   if (cached) {
+    //     return res.json({ success: true, ...JSON.parse(cached), source: "cache" });
+    //   }
+    // }
 
     // Find all branches managed by this owner
     const branches = await PropertyBranch.find({ owner: managerId }).select("_id");
@@ -81,7 +81,7 @@ exports.getAllComplaintsForManager = async (req, res) => {
 
     const response = { data: complaints, stats, nextCursor, hasMore: !!nextCursor };
 
-    if (redisClient) await redisClient.setEx(cacheKey, 600, JSON.stringify(response));
+    // if (redisClient) await redisClient.setEx(cacheKey, 600, JSON.stringify(response));
 
     return res.status(200).json({ success: true, ...response, source: "db" });
   } catch (err) {
@@ -97,10 +97,10 @@ exports.getAllComplaintsOfBranch = async (req, res) => {
 
     const cacheKey = `branchComplaints:${branchId}:${cursor || 'start'}:${limit}`;
 
-    if (redisClient) {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) return res.status(200).json({ success: true, ...JSON.parse(cached), source: "cache" });
-    }
+    // if (redisClient) {
+    //   const cached = await redisClient.get(cacheKey);
+    //   if (cached) return res.status(200).json({ success: true, ...JSON.parse(cached), source: "cache" });
+    // }
 
     const query = { branchId };
     if (cursor) query._id = { $lt: cursor };
@@ -113,7 +113,7 @@ exports.getAllComplaintsOfBranch = async (req, res) => {
     const nextCursor = complaints.length === parsedLimit ? complaints[complaints.length - 1]._id : null;
     const response = { data: complaints, nextCursor, hasMore: !!nextCursor, count: complaints.length };
 
-    if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(response));
+    // if (redisClient) await redisClient.setEx(cacheKey, 3600, JSON.stringify(response));
 
     res.status(200).json({ success: true, ...response, source: "db" });
   } catch (err) {
@@ -129,10 +129,10 @@ exports.getComplaintsByCategory = async (req, res) => {
   
     const cacheKey = `complaintsCategory:${req.user._id}:${category}:${cursor || 'start'}`;
 
-    if (redisClient) {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) return res.status(200).json({ success: true, ...JSON.parse(cached), source: "cache" });
-    }
+    // if (redisClient) {
+    //   const cached = await redisClient.get(cacheKey);
+    //   if (cached) return res.status(200).json({ success: true, ...JSON.parse(cached), source: "cache" });
+    // }
 
     const branch =await propertyBranch.findById(req.user._id)
 
@@ -148,7 +148,7 @@ exports.getComplaintsByCategory = async (req, res) => {
     const nextCursor = complaints.length === parseInt(limit) ? complaints[complaints.length - 1]._id : null;
     const response = { data: complaints, nextCursor, hasMore: !!nextCursor, count: complaints.length };
 
-    if (redisClient) await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+    // if (redisClient) await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
     res.status(200).json({ success: true, ...response, source: "db" });
   } catch (err) {
     console.log(err)
@@ -164,14 +164,14 @@ exports.getComplaintsByStatus = async (req, res) => {
 
     const normalizedStatus = status === "all" ? "all" : status.charAt(0).toUpperCase() + status.slice(1);
 
-    const versionKey = `complaint-status-version:${managerId}`;
-    const version = redisClient ? Number((await redisClient.get(versionKey)) || 1) : 1;
-    const cacheKey = `complaints-status:v${version}:${managerId}:${normalizedStatus}:${cursor || 'start'}`;
+    // const versionKey = `complaint-status-version:${managerId}`;
+    // const version = redisClient ? Number((await redisClient.get(versionKey)) || 1) : 1;
+    // const cacheKey = `complaints-status:v${version}:${managerId}:${normalizedStatus}:${cursor || 'start'}`;
 
-    if (redisClient) {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) return res.status(200).json({ success: true, ...JSON.parse(cached), source: "cache" });
-    }
+    // if (redisClient) {
+    //   const cached = await redisClient.get(cacheKey);
+    //   if (cached) return res.status(200).json({ success: true, ...JSON.parse(cached), source: "cache" });
+    // }
 
     const branches = await PropertyBranch.find({ owner: managerId }).select("_id");
     const branchIds = branches.map(b => b._id);
@@ -189,7 +189,7 @@ exports.getComplaintsByStatus = async (req, res) => {
     const nextCursor = complaints.length === parseInt(limit) ? complaints[complaints.length - 1]._id : null;
     const response = { data: complaints, nextCursor, hasMore: !!nextCursor };
 
-    if (redisClient) await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
+    // if (redisClient) await redisClient.setEx(cacheKey, 300, JSON.stringify(response));
 
     return res.status(200).json({ success: true, ...response, source: "db" });
   } catch (error) {

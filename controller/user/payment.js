@@ -5,7 +5,7 @@ const Tenant = require("../../model/owner/tenants")
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const Signup = require("../../model/user")
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 const mongoose = require("mongoose")
 const Booking = require("../../model/user/booking")
 const { paymentQueue, paymentRentQueue } = require("../../queue"); // <-- make sure the path is correct
@@ -86,10 +86,10 @@ exports.makingpayment = async (req, res) => {
         const order = await razorpay.orders.create(options);
 
      
-        if (redisClient) {
-            await redisClient.del(`payment-${req.user._id}`);
-            console.log("🗑 Redis cache cleared for user:", req.user._id);
-        }
+        // if (redisClient) {
+        //     await redisClient.del(`payment-${req.user._id}`);
+        //     console.log("🗑 Redis cache cleared for user:", req.user._id);
+        // }
 
         return res.status(200).json({
             success: true,
@@ -191,11 +191,11 @@ exports.verifying = async (req, res) => {
         }], { session });
 
         // ---------- REDIS INVALIDATION ----------
-        await Promise.allSettled([
-            redisClient.del("all-pg"),
-            redisClient.del(`tenant-branch-${branch._id}`),
-            redisClient.del(`room-${branch._id}-${roomId}`),
-        ]);
+        // await Promise.allSettled([
+        //     redisClient.del("all-pg"),
+        //     redisClient.del(`tenant-branch-${branch._id}`),
+        //     redisClient.del(`room-${branch._id}-${roomId}`),
+        // ]);
 
         // ---------- PUSH TO WORKER ----------
         // await paymentQueue.add("paymentQueue", {
@@ -307,10 +307,10 @@ exports.verifyingRentPayment = async (req, res) => {
     );
 
     /* ---------------- REDIS INVALIDATION ---------------- */
-    await Promise.allSettled([
-      redisClient.del("all-pg"),
-      redisClient.del(`tenant-${tenantId}`)
-    ]);
+    // await Promise.allSettled([
+    //   redisClient.del("all-pg"),
+    //   redisClient.del(`tenant-${tenantId}`)
+    // ]);
 
     /* ---------------- QUEUE PUSH ---------------- */
     await paymentRentQueue.add("adjust-rent", {

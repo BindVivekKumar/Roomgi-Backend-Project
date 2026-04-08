@@ -1,6 +1,6 @@
 
 
-const redisClient = require("../../utils/redis");
+// const redisClient = require("../../utils/redis");
 const PropertyBranch = require("../../model/owner/propertyBranch.js")
 
 

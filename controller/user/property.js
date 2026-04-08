@@ -1,5 +1,5 @@
 
-const redisClient = require("../../utils/redis.js");
+// const redisClient = require("../../utils/redis.js");
 const PropertyBranch = require("../../model/owner/propertyBranch.js")
 const HotelRoom = require("../../model/hotel/hotelroom")
 
@@ -308,13 +308,13 @@ exports.getpopular = async (req, res) => {
     ]);
 
     /* ---------------- SAVE TO CACHE ---------------- */
-    if (redisClient) {
-      await redisClient.setEx(
-        cacheKey,
-        3600,
-        JSON.stringify(allrooms)
-      );
-    }
+    // if (redisClient) {
+    //   await redisClient.setEx(
+    //     cacheKey,
+    //     3600,
+    //     JSON.stringify(allrooms)
+    //   );
+    // }
 
     return res.status(200).json({
       success: true,
