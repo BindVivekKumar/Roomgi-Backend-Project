@@ -14,7 +14,7 @@ const app = express();
    🔥 RAZORPAY WEBHOOK
    (MUST BE FIRST – RAW BODY)
 ======================= */
-app.use("/api/payment", webhookRouter);
+// app.use("/api/payment", webhookRouter);
 
 /* =======================
    ⚡ SPEED MIDDLEWARE
