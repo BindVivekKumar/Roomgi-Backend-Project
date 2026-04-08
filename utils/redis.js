@@ -2,7 +2,7 @@
 const { createClient } = require("redis");
 
 const client = createClient({
-  url: process.env.REDIS_URL, // 🔥 hardcode mat karo
+  url: process.env.REDIS_URL, 
 });
 
 client.on("error", (err) => {
@@ -13,7 +13,7 @@ let isRedisConnected = false;
 
 async function connectRedis() {
   try {
-    await client.connect();
+    // await client.connect();
     isRedisConnected = true;
     console.log("✅ Redis Connected");
   } catch (err) {
