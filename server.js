@@ -120,15 +120,15 @@ mongoose
     /* =======================
        ⏱️ CRONS
     ======================= */
-    require("./cron/dailyrentcalculate");
+    // require("./cron/dailyrentcalculate");
 
     /* =======================
        🧵 WORKERS
     ======================= */
-    require("./worker/paymentworker");
-    require("./worker/duescalculateworker");
-    require("./worker/paymentrentworker");
-    require("./worker/refundworker");
+    // require("./worker/paymentworker");
+    // require("./worker/duescalculateworker");
+    // require("./worker/paymentrentworker");
+    // require("./worker/refundworker");
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

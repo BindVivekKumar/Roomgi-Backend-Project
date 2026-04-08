@@ -15,7 +15,7 @@ async function connectRedis() {
   try {
     // await client.connect();
     isRedisConnected = true;
-    console.log("✅ Redis Connected");
+    console.log(" Redis Connected");
   } catch (err) {
     console.log("⚠️ Redis failed, continuing without Redis");
   }
