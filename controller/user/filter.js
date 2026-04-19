@@ -30,6 +30,7 @@ exports.AppliedAllFilters = async (req, res) => {
       pg = "any",
       facilities = [],
     } = req.body;
+    console.log(req.body);
 
     const matchConditions = {
       "rooms.toPublish.status": true,

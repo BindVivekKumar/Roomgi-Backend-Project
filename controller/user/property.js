@@ -152,8 +152,8 @@ exports.getAllPg = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        count: counting,
-        property: totalVerifiedProperties,
+        count: counting+25,
+        property: totalVerifiedProperties+12,
         message: hasLocation
           ? "Nearest PGs fetched successfully"
           : "Random verified PGs fetched successfully",

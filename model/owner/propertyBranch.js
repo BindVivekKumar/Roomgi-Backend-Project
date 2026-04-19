@@ -47,7 +47,7 @@ const RoomSchema = new mongoose.Schema(
 
     roomtype: {
       type: String,
-      enum: ["Single", "Double", "Triple"],
+      enum: ["Single", "Double", "Triple","Four"],
       required: false,
     },
 
@@ -59,7 +59,7 @@ const RoomSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["Single", "Double", "Triple","four"],
+      enum: ["Single", "Double", "Triple","Four"],
       required: false,
     },
 
