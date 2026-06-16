@@ -243,7 +243,7 @@ exports.downloadCertificate = async (req, res) => {
       .fillColor(primaryBlue)
       .font("Helvetica-Bold")
       .fontSize(12)
-      .text("Anshu Raj", 140, footerY + 30);
+      .text("Tushar Tyagi", 140, footerY + 30);
 
     // ✅ Role
     doc
