@@ -449,52 +449,36 @@ exports.DasboardBooking = async (req, res) => {
   }
 };
 
-exports.createInternshipOrder = async (req, res) => {
-  try {
-    const amount = 1; // ₹349
 
-    const options = {
-      amount: amount * 100, // paise
-      currency: "INR",
-      receipt: `internship_${Date.now()}`,
-    };
-
-    const order = await razorpay.orders.create(options);
-
-    return res.status(200).json({
-      success: true,
-      order,
-    });
-
-  } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
-  }
-};
 
 
 
 exports.createInternshipOrder = async (req, res) => {
   try {
+    console.log("🔥 Internship Order API Hit");
+
     const options = {
-      amount: 100,
+      amount: 7900,
       currency: "INR",
       receipt: `internship_${Date.now()}`
     };
 
+    console.log(options);
+
     const order = await razorpay.orders.create(options);
+
+    console.log(order);
 
     return res.status(200).json(order);
   } catch (err) {
     console.log(err);
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
   }
 };
+
+
+
+
+
 
 exports.verifyInternshipPayment = async (req, res) => {
   try {
