@@ -1,4 +1,5 @@
 const Payment = require("../../model/payment")
+
 const PropertyBranch = require("../../model/owner/propertyBranch")
 const Expense = require("../../model/owner/expenses")
 const Tenant = require("../../model/owner/tenants")
@@ -10,6 +11,7 @@ const mongoose = require("mongoose")
 const Booking = require("../../model/user/booking")
 const { paymentQueue, paymentRentQueue } = require("../../queue"); // <-- make sure the path is correct
 
+const axios = require("axios");
 
 
 
@@ -447,3 +449,161 @@ exports.DasboardBooking = async (req, res) => {
   }
 };
 
+exports.createInternshipOrder = async (req, res) => {
+  try {
+    const amount = 1; // ₹349
+
+    const options = {
+      amount: amount * 100, // paise
+      currency: "INR",
+      receipt: `internship_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    return res.status(200).json({
+      success: true,
+      order,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+
+
+exports.createInternshipOrder = async (req, res) => {
+  try {
+    const options = {
+      amount: 100,
+      currency: "INR",
+      receipt: `internship_${Date.now()}`
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    return res.status(200).json(order);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+exports.verifyInternshipPayment = async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+
+      fullName,
+      email,
+      phone,
+      college,
+      degree,
+      year,
+      role,
+      skills,
+      linkedin,
+      github,
+      portfolio,
+      resumeUrl,
+      whyJoin,
+      availability,
+    } = req.body;
+
+    // Verify Razorpay Signature
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Payment Signature",
+      });
+    }
+
+    // Telegram Message
+    const message = `
+🎉 NEW INTERNSHIP APPLICATION
+
+👤 Name: ${fullName}
+
+📧 Email: ${email}
+
+📱 Phone: ${phone}
+
+🏫 College: ${college}
+
+🎓 Degree: ${degree}
+
+📅 Year: ${year}
+
+💼 Role: ${role}
+
+🛠 Skills:
+${skills}
+
+🔗 LinkedIn:
+${linkedin || "N/A"}
+
+💻 GitHub:
+${github || "N/A"}
+
+🌐 Portfolio:
+${portfolio || "N/A"}
+
+📄 Resume:
+${resumeUrl || "N/A"}
+
+📝 Why Join:
+${whyJoin}
+
+⏰ Availability:
+${availability}
+
+━━━━━━━━━━━━━━━━━━
+
+💰 PAYMENT SUCCESSFUL
+
+🆔 Order ID:
+${razorpay_order_id}
+
+💳 Payment ID:
+${razorpay_payment_id}
+`;
+
+    await axios.post(
+      `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        chat_id: process.env.TELEGRAM_CHAT_ID,
+        text: message,
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Registration Successful",
+    });
+
+  } catch (error) {
+    console.log(error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Payment Verification Failed",
+      error: error.message,
+    });
+  }
+};
