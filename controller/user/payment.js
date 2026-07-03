@@ -458,7 +458,7 @@ exports.createInternshipOrder = async (req, res) => {
     console.log("🔥 Internship Order API Hit");
 
     const options = {
-      amount: 100,
+      amount: 5900,
       currency: "INR",
       receipt: `internship_${Date.now()}`
     };
