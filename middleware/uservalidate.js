@@ -5,56 +5,77 @@ const jwt = require("jsonwebtoken");
 const clearAuthCookie = (res) => {
   res.clearCookie("babbarCookie", {
     httpOnly: true,
-    secure: true, // Live HTTPS required
+    secure: true,
     sameSite: "none",
     path: "/",
   });
 };
 
-// ==================== VALIDATE TOKEN MIDDLEWARE ==================== //
+// ==================== VALIDATE TOKEN ==================== //
 exports.Validate = async (req, res, next) => {
   try {
-    // 1️⃣ Token from Cookie
+    console.log("====================================");
+    console.log("AUTH MIDDLEWARE");
+    console.log("Origin:", req.headers.origin);
+    console.log("Host:", req.headers.host);
+    console.log("Cookies:", req.cookies);
+    console.log("Cookie Header:", req.headers.cookie);
+    console.log("Authorization:", req.headers.authorization);
+
+    // Get token from cookie
     let token = req.cookies?.babbarCookie;
 
-    // 2️⃣ Token from Header (APK / Mobile / Cross domain)
-    if (!token && req.header("Authorization")) {
-      token = req.header("Authorization").replace("Bearer ", "");
+    // Fallback to Authorization header
+    if (!token && req.headers.authorization) {
+      token = req.headers.authorization.replace("Bearer ", "");
     }
 
+    console.log("Received Token:", token);
+
     if (!token) {
+      console.log("❌ Token not found");
+
       clearAuthCookie(res);
+
       return res.status(401).json({
         success: false,
         message: "Token not found",
       });
     }
 
-    // 3️⃣ Verify JWT
+    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
-    // 4️⃣ Get User from DB
+    console.log("Decoded Token:", decoded);
+
     const user = await Signup.findById(decoded.id).select("-password");
 
     if (!user) {
+      console.log("❌ User not found");
+
       clearAuthCookie(res);
+
       return res.status(401).json({
         success: false,
         message: "User no longer exists",
       });
     }
 
-    // 5️⃣ Attach user to req object
+    console.log("✅ Authenticated:", user.email);
+
     req.user = user;
+
     next();
 
   } catch (error) {
+    console.log("AUTH ERROR:", error);
+
     clearAuthCookie(res);
 
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         success: false,
-        message: "Session expired. Please login again.",
+        message: "Session expired",
       });
     }
 
@@ -72,42 +93,24 @@ exports.Validate = async (req, res, next) => {
   }
 };
 
-// ==================== ROLE CHECK MIDDLEWARE ==================== //
+// ==================== ROLE CHECK ==================== //
 
-// Branch Manager Role
 exports.IsBranchmanager = (req, res, next) => {
-  try {
-    if (req.user.role !== "branch-manager") {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to access this page",
-      });
-    }
-    next();
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
+  if (req.user.role !== "branch-manager") {
+    return res.status(403).json({
       success: false,
-      message: "Internal server error",
+      message: "You are not authorized",
     });
   }
+  next();
 };
 
-// Owner Role
 exports.IsOwner = (req, res, next) => {
-  try {
-    if (req.user.role !== "owner") {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to access this page",
-      });
-    }
-    next();
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
+  if (req.user.role !== "owner") {
+    return res.status(403).json({
       success: false,
-      message: "Internal server error",
+      message: "You are not authorized",
     });
   }
+  next();
 };
