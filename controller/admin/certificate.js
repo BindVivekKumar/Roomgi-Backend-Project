@@ -127,161 +127,398 @@ exports.deleteCertificate = async (req, res) => {
 exports.downloadCertificate = async (req, res) => {
   try {
     const id = req.query.id?.trim();
-    const cert = await Certificate.findOne({ certificateId: id });
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Certificate ID is required",
+      });
+    }
+
+    const cert = await Certificate.findOne({
+      certificateId: id.toUpperCase(),
+    });
 
     if (!cert) {
-      return res.status(404).json({ message: "Certificate not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Certificate not found",
+      });
     }
+
+    // =========================================================
+    // PDF DOCUMENT
+    // =========================================================
 
     const doc = new PDFDocument({
       size: "A4",
       layout: "landscape",
       margin: 0,
+      autoFirstPage: true,
     });
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `inline; filename=Certificate_${cert.name.replace(/\s/g, "_")}.pdf`
+      `inline; filename=Certificate_${cert.name
+        .replace(/\s+/g, "_")}.pdf`
     );
 
     doc.pipe(res);
 
-    // 🎨 COLORS
+    const pageWidth = doc.page.width;   // 841.89
+    const pageHeight = doc.page.height; // 595.28
+
+    // =========================================================
+    // COLORS
+    // =========================================================
+
     const primaryBlue = "#0B1E3C";
     const accentGold = "#C9A24D";
     const textGray = "#555555";
     const lightGray = "#F7F7F7";
 
-    // 🟫 BACKGROUND
-    doc.rect(0, 0, 842, 595).fill(lightGray);
+    // =========================================================
+    // BACKGROUND
+    // =========================================================
 
-    // 🟦 BORDER
-    doc.rect(15, 15, 812, 565).lineWidth(2).stroke(accentGold);
-    doc.rect(25, 25, 792, 545).lineWidth(1).stroke(primaryBlue);
+    doc
+      .rect(0, 0, pageWidth, pageHeight)
+      .fill(lightGray);
 
-    // 🏆 TITLE
+    // =========================================================
+    // BORDER
+    // =========================================================
+
+    doc
+      .lineWidth(2)
+      .strokeColor(accentGold)
+      .rect(15, 15, pageWidth - 30, pageHeight - 30)
+      .stroke();
+
+    doc
+      .lineWidth(1)
+      .strokeColor(primaryBlue)
+      .rect(25, 25, pageWidth - 50, pageHeight - 50)
+      .stroke();
+
+    // =========================================================
+    // TITLE
+    // =========================================================
+
     doc
       .fillColor(primaryBlue)
       .font("Times-Bold")
       .fontSize(36)
-      .text("CERTIFICATE OF INTERNSHIP", 0, 70, { align: "center" });
+      .text(
+        "CERTIFICATE OF INTERNSHIP",
+        0,
+        68,
+        {
+          width: pageWidth,
+          align: "center",
+          lineBreak: false,
+        }
+      );
 
-    // 📄 SUBTITLE
+    // =========================================================
+    // SUBTITLE
+    // =========================================================
+
     doc
       .fillColor(textGray)
       .font("Times-Italic")
       .fontSize(16)
-      .text("This certificate is proudly awarded to", 0, 120, {
-        align: "center",
-      });
+      .text(
+        "This certificate is proudly awarded to",
+        0,
+        119,
+        {
+          width: pageWidth,
+          align: "center",
+          lineBreak: false,
+        }
+      );
 
-    // 👤 NAME
+    // =========================================================
+    // NAME
+    // =========================================================
+
     doc
       .fillColor(primaryBlue)
       .font("Helvetica-Bold")
       .fontSize(32)
-      .text(cert.name.toUpperCase(), 0, 155, { align: "center" });
-
-    // UNDERLINE
-    doc.moveTo(250, 195).lineTo(592, 195).lineWidth(1.5).stroke(accentGold);
-
-    // 📌 MAIN PARAGRAPH (Perfect wording + spacing)
-    doc
-      .fillColor(textGray)
-      .font("Times-Roman")
-      .fontSize(15)
       .text(
-        ` Student of (${cert.college || "________ College"}) has successfully completed an internship as ${cert.role} at RoomGi Private Limited.${cert.description}`,
-        100,
-        230,
-        { align: "center", width: 640, lineGap: 4 }
+        cert.name.toUpperCase(),
+        0,
+        153,
+        {
+          width: pageWidth,
+          align: "center",
+          lineBreak: false,
+        }
       );
 
-    // 📅 DATES
-    const startDate = new Date(cert.startDate).toLocaleDateString("en-IN");
-    const endDate = new Date(cert.endDate).toLocaleDateString("en-IN");
+    // =========================================================
+    // UNDERLINE
+    // =========================================================
 
     doc
-      .fontSize(14)
-      .fillColor(primaryBlue)
-      .text(`Duration: ${startDate} - ${endDate}`, 0, 330, {
-        align: "center",
-      });
+      .moveTo(250, 195)
+      .lineTo(592, 195)
+      .lineWidth(1.5)
+      .strokeColor(accentGold)
+      .stroke();
 
-    // 💼 TYPE
+    // =========================================================
+    // MAIN DESCRIPTION
+    // =========================================================
+
+    const description =
+      cert.description?.trim() ||
+      "demonstrated strong technical skills, professionalism, dedication, and commitment throughout the internship.";
+
+    /*
+      IMPORTANT:
+      Do NOT concatenate another "Successfully completed..."
+      because your database description already contains the
+      internship description.
+    */
+
+    const paragraph = `Student of ${
+      cert.college || "________ College"
+    } has successfully completed an internship as ${
+      cert.role
+    } at RoomGi Private Limited. During the internship, ${description}`;
+
+    const paragraphX = 95;
+    const paragraphY = 225;
+    const paragraphWidth = pageWidth - 190;
+
+    const paragraphFont = "Times-Roman";
+    const paragraphFontSize = 14.5;
+    const paragraphLineGap = 4;
+
     doc
-      .fontSize(13)
       .fillColor(textGray)
-      .text(`Internship Type: ${cert.type}`, 0, 355, {
-        align: "center",
-      });
+      .font(paragraphFont)
+      .fontSize(paragraphFontSize);
 
-    if (cert.type === "Paid") {
-      doc
-        .font("Helvetica-Bold")
-        .fontSize(13)
-        .fillColor(primaryBlue)
-        .text(`Stipend: ${cert.amount} RS`, 0, 375, {
-          align: "center",
-        });
+    // Calculate EXACT paragraph height
+    const paragraphHeight = doc.heightOfString(paragraph, {
+      width: paragraphWidth,
+      align: "center",
+      lineGap: paragraphLineGap,
+    });
+
+    // Draw paragraph
+    doc.text(paragraph, paragraphX, paragraphY, {
+      width: paragraphWidth,
+      align: "center",
+      lineGap: paragraphLineGap,
+    });
+
+    // =========================================================
+    // DETAILS
+    // =========================================================
+
+    // Put details dynamically BELOW paragraph
+    let detailsY = paragraphY + paragraphHeight + 18;
+
+    // Safety limit
+    if (detailsY > 365) {
+      detailsY = 365;
     }
 
-    const footerY = 440;
-    const lineY = footerY + 20;
+    const startDate = new Date(cert.startDate).toLocaleDateString(
+      "en-IN"
+    );
 
+    const endDate = new Date(cert.endDate).toLocaleDateString(
+      "en-IN"
+    );
 
-    // ✅ Signature Image (proper overlap + alignment)
-    doc.save();
+    // Duration
+    doc
+      .fillColor(primaryBlue)
+      .font("Helvetica-Bold")
+      .fontSize(13)
+      .text(
+        `Duration: ${startDate} – ${endDate}`,
+        0,
+        detailsY,
+        {
+          width: pageWidth,
+          align: "center",
+          lineBreak: false,
+        }
+      );
 
-  
+    // Internship type
+    doc
+      .fillColor(textGray)
+      .font("Helvetica")
+      .fontSize(12)
+      .text(
+        `Internship Type: ${cert.type || "Paid"}`,
+        0,
+        detailsY + 22,
+        {
+          width: pageWidth,
+          align: "center",
+          lineBreak: false,
+        }
+      );
 
-    doc.restore();
+    // Stipend
+    if (cert.type === "Paid" && cert.amount) {
+      doc
+        .fillColor(primaryBlue)
+        .font("Helvetica-Bold")
+        .fontSize(12)
+        .text(
+          `Stipend: INR ${Number(cert.amount).toLocaleString("en-IN")}`,
+          0,
+          detailsY + 42,
+          {
+            width: pageWidth,
+            align: "center",
+            lineBreak: false,
+          }
+        );
+    }
 
-    // ✅ Name (aligned with line)
+    // =========================================================
+    // SIGNATURE SECTION
+    // =========================================================
+
+    const signatureX = 140;
+    const signatureLineY = 492;
+
+    doc
+      .moveTo(signatureX, signatureLineY)
+      .lineTo(signatureX + 145, signatureLineY)
+      .lineWidth(0.8)
+      .strokeColor("#BBBBBB")
+      .stroke();
+
     doc
       .fillColor(primaryBlue)
       .font("Helvetica-Bold")
       .fontSize(12)
-      .text("Tushar Tyagi", 140, footerY + 30);
+      .text(
+        "Tushar Tyagi",
+        signatureX,
+        signatureLineY + 8,
+        {
+          lineBreak: false,
+        }
+      );
 
-    // ✅ Role
     doc
+      .fillColor(textGray)
       .font("Helvetica")
       .fontSize(10)
-      .fillColor(textGray)
-      .text("Managing Director", 140, footerY + 45)
-      .text("RoomGi Private Limited", 140, footerY + 58);
-
-    // 🔳 QR CODE
-    const qrImage = await QRCode.toDataURL(cert.qrLink);
-    doc.image(qrImage, 650, footerY - 10, { width: 85 });
-
-    doc
-      .fontSize(9)
-      .fillColor(textGray)
-      .text("Scan to Verify", 650, footerY + 75, {
-        width: 85,
-        align: "center",
-      });
-
-    // 📌 FOOTER
-    doc
-      .fontSize(9)
-      .fillColor("#666")
-      .text(`Certificate ID: ${cert.certificateId}`, 40, 565);
+      .text(
+        "Managing Director",
+        signatureX,
+        signatureLineY + 25,
+        {
+          lineBreak: false,
+        }
+      );
 
     doc.text(
-      `Issued On: ${new Date(cert.issueDate).toLocaleDateString("en-IN")}`,
-      620,
-      565
+      "RoomGi Private Limited",
+      signatureX,
+      signatureLineY + 40,
+      {
+        lineBreak: false,
+      }
     );
 
+    // =========================================================
+    // QR CODE
+    // =========================================================
+
+    const qrImage = await QRCode.toDataURL(cert.qrLink, {
+      errorCorrectionLevel: "H",
+      type: "image/png",
+      margin: 1,
+      width: 300,
+    });
+
+    const qrSize = 82;
+    const qrX = pageWidth - 165;
+    const qrY = 435;
+
+    doc.image(qrImage, qrX, qrY, {
+      width: qrSize,
+      height: qrSize,
+    });
+
+    doc
+      .fillColor(textGray)
+      .font("Helvetica")
+      .fontSize(9)
+      .text(
+        "Scan to Verify",
+        qrX - 2,
+        qrY + qrSize + 7,
+        {
+          width: qrSize + 4,
+          align: "center",
+          lineBreak: false,
+        }
+      );
+
+    // =========================================================
+    // FOOTER
+    // =========================================================
+
+    const footerY = pageHeight - 31;
+
+    doc
+      .fillColor("#666666")
+      .font("Helvetica")
+      .fontSize(8.5)
+      .text(
+        `Certificate ID: ${cert.certificateId}`,
+        40,
+        footerY,
+        {
+          lineBreak: false,
+        }
+      );
+
+    doc.text(
+      `Issued On: ${new Date(
+        cert.issueDate
+      ).toLocaleDateString("en-IN")}`,
+      620,
+      footerY,
+      {
+        width: 180,
+        align: "right",
+        lineBreak: false,
+      }
+    );
+
+    // =========================================================
+    // END PDF
+    // =========================================================
+
     doc.end();
+
   } catch (error) {
-    console.error(error);
+    console.error("Certificate PDF Error:", error);
+
     if (!res.headersSent) {
-      res.status(500).json({ error: error.message });
+      return res.status(500).json({
+        success: false,
+        message: "Error generating certificate PDF",
+        error: error.message,
+      });
     }
   }
 };
